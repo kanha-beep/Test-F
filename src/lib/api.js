@@ -18,26 +18,26 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  getTests: () => request("/api/tests"),
-  getTest: (id) => request(`/api/tests/${id}`),
-  listPdfFiles: () => request("/api/tests/pdf-files"),
-  parsePdfFromFolder: (filename) => request(`/api/tests/parse-pdf?filename=${encodeURIComponent(filename)}`),
+  getTests: () => request("/tests"),
+  getTest: (id) => request(`/tests/${id}`),
+  listPdfFiles: () => request("/tests/pdf-files"),
+  parsePdfFromFolder: (filename) => request(`/tests/parse-pdf?filename=${encodeURIComponent(filename)}`),
   generateTest: (prompt) =>
-    request("/api/tests/generate", {
+    request("/tests/generate", {
       method: "POST",
       body: JSON.stringify({ prompt })
     }),
   importTest: (body) =>
-    request("/api/tests/import", {
+    request("/tests/import", {
       method: "POST",
       body: JSON.stringify(body)
     }),
   getSubmissions: (candidateName) =>
-    request(candidateName ? `/api/tests/submissions?candidateName=${encodeURIComponent(candidateName)}` : "/api/tests/submissions"),
+    request(candidateName ? `/tests/submissions?candidateName=${encodeURIComponent(candidateName)}` : "/tests/submissions"),
   submitTest: (id, body) =>
-    request(`/api/tests/${id}/submissions`, {
+    request(`/tests/${id}/submissions`, {
       method: "POST",
       body: JSON.stringify(body)
     }),
-  getSubmission: (id) => request(`/api/tests/submissions/${id}`)
+  getSubmission: (id) => request(`/tests/submissions/${id}`)
 };
