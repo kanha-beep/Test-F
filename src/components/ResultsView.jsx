@@ -56,6 +56,17 @@ function formatScore(value) {
   return Number.isInteger(value) ? String(value) : Number(value || 0).toFixed(2);
 }
 
+function isGenericOverallExplanation(text) {
+  const t = String(text || "").trim().toLowerCase();
+  return (
+    t === "imported from pdf." ||
+    t === "imported from pdf" ||
+    t === "imported from source document." ||
+    t === "generated from prompt." ||
+    t === "generated from prompt"
+  );
+}
+
 const panel = "rounded-[28px] border border-stone-900/10 bg-white/70 p-6 shadow-[0_30px_70px_rgba(80,46,11,0.12)] backdrop-blur-xl";
 const primaryButton =
   "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-700 to-orange-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(196,102,31,0.28)] transition hover:-translate-y-0.5";
@@ -138,10 +149,11 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
               {answer.options.map((option) => {
                 const isSelected = answer.selectedOption === option.key;
                 const isCorrect = answer.correctOption === option.key;
+                const optionExplanation = option.explanation?.trim();
 
                 return (
                   <div
-                    className={`flex min-w-[220px] flex-1 items-center gap-3 rounded-3xl border px-4 py-4 ${
+                    className={`flex min-w-[220px] flex-1 flex-col gap-2 rounded-3xl border px-4 py-4 ${
                       isCorrect
                         ? "border-emerald-700/30 bg-emerald-500/10"
                         : isSelected
@@ -150,10 +162,18 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
                     }`}
                     key={option.key}
                   >
-                    <strong className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-stone-900/10 text-stone-900">
-                      {option.key}
-                    </strong>
-                    <span className="text-sm leading-6 text-stone-700">{option.text}</span>
+                    <div className="flex items-start gap-3">
+                      <strong className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-stone-900/10 text-stone-900">
+                        {option.key}
+                      </strong>
+                      <span className="text-sm leading-6 text-stone-700">{option.text}</span>
+                    </div>
+                    {optionExplanation ? (
+                      <div className="rounded-2xl bg-stone-900/5 px-3 py-2 text-xs leading-5 text-stone-700">
+                        <span className="font-semibold text-stone-900">Explanation: </span>
+                        {optionExplanation}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -166,9 +186,12 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
                 Correct option: <strong className="text-stone-900">{answer.correctOption}</strong>
               </p>
             </div>
-            <p className="mt-4 rounded-3xl bg-emerald-900/10 px-4 py-4 text-sm leading-7 text-emerald-900">
-              {answer.explanation}
-            </p>
+            {answer.explanation?.trim() && !isGenericOverallExplanation(answer.explanation) ? (
+              <p className="mt-4 rounded-3xl bg-emerald-900/10 px-4 py-4 text-sm leading-7 text-emerald-900">
+                <span className="font-semibold text-emerald-950">Question explanation: </span>
+                {answer.explanation}
+              </p>
+            ) : null}
           </article>
         ))}
       </div>
