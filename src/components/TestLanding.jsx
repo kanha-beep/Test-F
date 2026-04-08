@@ -179,7 +179,7 @@ function QuestionEditor({ question, variant, onChange, onAddToList, onRemoveFrom
       </div>
       <textarea value={question.prompt} onChange={(event) => onChange(question.id, (current) => ({ ...current, prompt: event.target.value }))} rows={3} className="mt-3 w-full rounded-2xl border border-slate-900/10 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900" placeholder="Question text" />
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        {question.options.map((option, index) => <div key={option.key} className="rounded-2xl border border-slate-900/10 bg-slate-100 p-3 text-sm"><span className="mb-2 block font-semibold text-slate-900">{option.key}</span><textarea value={option.text} onChange={(event) => onChange(question.id, (current) => ({ ...current, options: current.options.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) }))} rows={2} className="w-full rounded-2xl border border-slate-900/10 bg-white px-3 py-3 outline-none focus:border-slate-900" /></div>)}
+        {question.options.map((option, index) => <div key={option.key} className="rounded-2xl border border-slate-900/10 bg-slate-100 p-3 text-sm"><span className="mb-2 block font-semibold text-slate-900">{option.key}</span><textarea value={option.text} onChange={(event) => onChange(question.id, (current) => ({ ...current, options: current.options.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) }))} rows={2} className="w-full rounded-2xl border border-slate-900/10 bg-white px-3 py-3 outline-none focus:border-slate-900" placeholder={`Option ${option.key} text`} /><textarea value={option.explanation || ""} onChange={(event) => onChange(question.id, (current) => ({ ...current, options: current.options.map((item, itemIndex) => itemIndex === index ? { ...item, explanation: event.target.value } : item) }))} rows={3} className="mt-3 w-full rounded-2xl border border-slate-900/10 bg-white px-3 py-3 outline-none focus:border-slate-900" placeholder={`Option ${option.key} explanation`} /></div>)}
       </div>
     </article>
   );
@@ -312,5 +312,6 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
     </section>
   );
 }
+
 
 
