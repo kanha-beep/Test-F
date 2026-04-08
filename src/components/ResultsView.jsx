@@ -133,11 +133,11 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[28px] border border-slate-900/10 bg-slate-900 p-6">
           <span className="text-sm text-slate-100">Correct</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.correct}</strong>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-white">{submission.summary.correct}</strong>
         </div>
         <div className="rounded-[28px] border border-slate-900/10 bg-slate-700 p-6">
           <span className="text-sm text-slate-100">Incorrect</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.incorrect}</strong>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-white">{submission.summary.incorrect}</strong>
         </div>
         <div className="rounded-[28px] border border-slate-900/10 bg-slate-200 p-6">
           <span className="text-sm text-slate-700">Skipped</span>
@@ -235,6 +235,7 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
     </section>
   );
 }
+
 
 
 
