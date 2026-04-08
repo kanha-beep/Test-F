@@ -1,3 +1,5 @@
+// Boot the React application and mount it into the browser root.
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";

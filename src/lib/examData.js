@@ -1,3 +1,5 @@
+// Centralize exam, page-type, and label metadata shared across the UI.
+
 export const EXAM_TYPES = [
   "SSC",
   "UPSC",
@@ -66,6 +68,7 @@ export const EXAM_DETAILS = {
   }
 };
 
+// Handle the pageTypeLabel logic for this module.
 export function pageTypeLabel(value) {
   return PAGE_TYPES.find((item) => item.value === value)?.label || "Custom Practice";
 }

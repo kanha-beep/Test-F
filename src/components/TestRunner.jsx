@@ -1,13 +1,20 @@
+// Render the live test-taking experience and collect answer actions.
+
+import { useState } from "react";
+
+// Format numeric score values so whole numbers and decimals display cleanly.
 function formatScore(value) {
   return Number.isInteger(value) ? String(value) : Number(value || 0).toFixed(2);
 }
 
+// Convert remaining seconds into a mm:ss timer display string.
 function formatTime(totalSeconds) {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const seconds = String(totalSeconds % 60).padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
 
+// Choose the palette color based on the saved answer state for each question.
 function getPaletteStatus(answer) {
   if (!answer) {
     return "bg-white/80 text-stone-700";
@@ -27,12 +34,13 @@ function getPaletteStatus(answer) {
 const panel = "rounded-[28px] border border-stone-900/10 bg-white/70 p-6 shadow-[0_30px_70px_rgba(80,46,11,0.12)] backdrop-blur-xl";
 const pill = "inline-flex rounded-full bg-emerald-900/10 px-3 py-2 text-xs font-semibold text-emerald-800";
 const ghostButton =
-  "inline-flex items-center justify-center rounded-2xl border border-stone-900/10 bg-white/80 px-5 py-4 text-sm font-semibold text-stone-900 transition hover:-translate-y-0.5";
+  "inline-flex items-center justify-center rounded-2xl border border-stone-900/10 bg-white/80 px-5 py-4 text-sm font-semibold text-stone-900 transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
 const reviewButton =
-  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-violet-700 to-fuchsia-500 px-5 py-4 text-sm font-semibold text-white transition hover:-translate-y-0.5";
+  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-violet-700 to-fuchsia-500 px-5 py-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
 const primaryButton =
-  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-700 to-orange-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(196,102,31,0.28)] transition hover:-translate-y-0.5";
+  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-700 to-orange-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(196,102,31,0.28)] transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
 
+// Render the test runner screen and wire option, review, and submit actions.
 export function TestRunner({
   test,
   candidateName,
@@ -49,6 +57,17 @@ export function TestRunner({
   const question = test.questions[currentIndex];
   const answer = answers[question._id];
   const selectedOption = answer?.selectedOption || null;
+  const [submitPending, setSubmitPending] = useState(false);
+  const isSubmitting = submitPending || timeLeft === 0;
+
+  const handleSubmit = async () => {
+    setSubmitPending(true);
+    try {
+      await onSubmit();
+    } finally {
+      setSubmitPending(false);
+    }
+  };
 
   const answeredCount = Object.values(answers).filter((item) => item?.selectedOption).length;
   const reviewCount = Object.values(answers).filter(
@@ -98,6 +117,7 @@ export function TestRunner({
                 } ${getPaletteStatus(answers[item._id])}`}
                 onClick={() => onSelectQuestion(index)}
                 type="button"
+                disabled={isSubmitting}
               >
                 {item.number}
               </button>
@@ -131,6 +151,7 @@ export function TestRunner({
                 }`}
                 onClick={() => onSelectOption(question._id, option.key)}
                 type="button"
+                disabled={isSubmitting}
               >
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-stone-900/10 font-bold text-stone-900">
                   {option.key}
@@ -142,20 +163,22 @@ export function TestRunner({
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button className={ghostButton} onClick={() => onClearResponse(question._id)} type="button">
-            Clear Response
+          <button className={ghostButton} onClick={() => onClearResponse(question._id)} type="button" disabled={isSubmitting}>
+            {isSubmitting ? "Clear Response..." : "Clear Response"}
           </button>
-          <button className={ghostButton} onClick={() => onSkip(question._id)} type="button">
-            Skip
+          <button className={ghostButton} onClick={() => onSkip(question._id)} type="button" disabled={isSubmitting}>
+            {isSubmitting ? "Skip..." : "Skip"}
           </button>
-          <button className={reviewButton} onClick={() => onMarkForReview(question._id)} type="button">
-            Mark for Review
+          <button className={reviewButton} onClick={() => onMarkForReview(question._id)} type="button" disabled={isSubmitting}>
+            {isSubmitting ? "Mark for Review..." : "Mark for Review"}
           </button>
-          <button className={primaryButton} onClick={onSubmit} type="button">
-            Submit Test
+          <button className={primaryButton} onClick={handleSubmit} type="button" disabled={isSubmitting}>
+            {isSubmitting ? "Submit Test..." : "Submit Test"}
           </button>
         </div>
       </div>
     </section>
   );
 }
+
+

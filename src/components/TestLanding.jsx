@@ -1,3 +1,5 @@
+// Preserve the older landing page implementation used before the newer auth-first flow.
+
 import { useEffect, useMemo, useState } from "react";
 import { EXAM_DETAILS, EXAM_TYPES, PAGE_TYPES, pageTypeLabel } from "../lib/examData.js";
 
@@ -20,19 +22,23 @@ const primaryButton = "inline-flex items-center justify-center rounded-2xl bg-gr
 const secondaryButton = "inline-flex items-center justify-center rounded-2xl border border-stone-900/10 bg-white/85 px-4 py-3 text-sm font-semibold text-stone-900 transition hover:-translate-y-0.5 disabled:opacity-40";
 const dangerButton = "inline-flex items-center justify-center rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900 transition hover:bg-rose-100";
 
+// Format stored timestamps for cards, rankings, and history views.
 function formatSavedDate(value) {
   return value ? new Date(value).toLocaleString() : "Saved test";
 }
 
+// Format numeric score values so whole numbers and decimals display cleanly.
 function formatScore(score) {
   return Number.isInteger(score) ? String(score) : Number(score || 0).toFixed(2);
 }
 
+// Convert raw scores into percentages for dashboard improvement metrics.
 function scorePercent(submission) {
   const total = submission?.test?.totalMarks || 0;
   return total ? Math.round((submission.score / total) * 100) : 0;
 }
 
+// Choose badge colors based on the test page type.
 function badgeTone(pageType) {
   if (pageType === "pyq") return "bg-rose-500/10 text-rose-800";
   if (pageType === "sectional") return "bg-sky-500/10 text-sky-800";
@@ -40,6 +46,7 @@ function badgeTone(pageType) {
   return "bg-emerald-900/10 text-emerald-800";
 }
 
+// Reuse one section-header layout across the landing views.
 function SectionHeader({ eyebrow, title, description, action }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -53,6 +60,7 @@ function SectionHeader({ eyebrow, title, description, action }) {
   );
 }
 
+// Reuse one compact stat card across dashboard-style summaries.
 function StatCard({ label, value, tone = "text-stone-900" }) {
   return (
     <div className="rounded-3xl border border-stone-900/10 bg-white/70 p-4">
@@ -62,6 +70,7 @@ function StatCard({ label, value, tone = "text-stone-900" }) {
   );
 }
 
+// Render one saved test card with actions for starting, ranking, or deleting.
 function TestCard({ test, onStart, onLoadRankings, onDeleteTest, canDelete }) {
   return (
     <article className="rounded-3xl border border-stone-900/10 bg-white/70 p-5">
@@ -90,6 +99,7 @@ function TestCard({ test, onStart, onLoadRankings, onDeleteTest, canDelete }) {
   );
 }
 
+// Handle the ExamMultiSelector logic for this module.
 function ExamMultiSelector({ selectedExamTypes, activeExamType, onToggle, onFocus }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -113,6 +123,7 @@ function ExamMultiSelector({ selectedExamTypes, activeExamType, onToggle, onFocu
   );
 }
 
+// Paginate saved tests into a responsive two-card-per-row catalog.
 function CatalogGrid({ tests, page, onPageChange, onStart, onLoadRankings, onDeleteTest, canDelete, emptyMessage }) {
   const pageCount = Math.max(1, Math.ceil(tests.length / TEST_PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -126,6 +137,7 @@ function CatalogGrid({ tests, page, onPageChange, onStart, onLoadRankings, onDel
   );
 }
 
+// Render the pre-login authentication panel and sign-in/register actions.
 function AuthPanel({ authUser, authChecking, selectedExamTypes, onRegister, onLogin, onLogout, onSavePreferences }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -134,7 +146,7 @@ function AuthPanel({ authUser, authChecking, selectedExamTypes, onRegister, onLo
 
   if (authChecking) return <div className={cardBase}><p className="text-sm text-stone-600">Checking session...</p></div>;
   if (authUser) {
-    return <div className={`${cardBase} space-y-4`}><SectionHeader eyebrow="Auth" title="Signed in" description="Your preferences decide which exam libraries are highlighted after login." /><p className="text-sm text-stone-600">{authUser.displayName} · {authUser.email} · {authUser.role}</p><div className="flex flex-wrap gap-2">{(authUser.preferredExamTypes || []).map((exam) => <span key={exam} className="rounded-full bg-amber-700/10 px-3 py-1 text-xs text-amber-900">{exam}</span>)}</div><div className="flex flex-wrap gap-2"><button type="button" className={secondaryButton} onClick={() => onSavePreferences(selectedExamTypes)}>Save selected exam preferences</button><button type="button" className={secondaryButton} onClick={onLogout}>Log out</button></div></div>;
+    return <div className={`${cardBase} space-y-4`}><SectionHeader eyebrow="Auth" title="Signed in" description="Your preferences decide which exam libraries are highlighted after login." /><p className="text-sm text-stone-600">{authUser.displayName} ï¿½ {authUser.email} ï¿½ {authUser.role}</p><div className="flex flex-wrap gap-2">{(authUser.preferredExamTypes || []).map((exam) => <span key={exam} className="rounded-full bg-amber-700/10 px-3 py-1 text-xs text-amber-900">{exam}</span>)}</div><div className="flex flex-wrap gap-2"><button type="button" className={secondaryButton} onClick={() => onSavePreferences(selectedExamTypes)}>Save selected exam preferences</button><button type="button" className={secondaryButton} onClick={onLogout}>Log out</button></div></div>;
   }
 
   return (
@@ -147,7 +159,8 @@ function AuthPanel({ authUser, authChecking, selectedExamTypes, onRegister, onLo
       <button type="button" className={primaryButton} onClick={() => mode === "register" ? onRegister({ email, password, displayName, preferredExamTypes: selectedExamTypes }) : onLogin({ email, password })}>{mode === "register" ? "Create account" : "Log in"}</button>
     </div>
   );
-}
+}
+// Let users edit parsed or selected imported questions before saving a test.
 function QuestionEditor({ question, variant, onChange, onAddToList, onRemoveFromList, onDeleteQuestion }) {
   const isPool = variant === "pool";
   return (
@@ -172,6 +185,7 @@ function QuestionEditor({ question, variant, onChange, onAddToList, onRemoveFrom
   );
 }
 
+// Handle AI generation, PDF upload, and imported-question editing for the active exam.
 function UploadBuilder(props) {
   const { activeExamType, selectedPageType, selectedSectionName, importedDraft, parsing, generating, savingImport, savingDraft, durationMinutes, generationPrompt, syllabusTagsInput, draftStats, authUser, onPromptChange, onPageTypeChange, onSectionNameChange, onSyllabusTagsChange, onDurationChange, onGenerate, onPdfUpload, onImportedDraftChange, onImportedQuestionChange, onAddToList, onRemoveFromList, onRemoveQuestion, onAddQuestion, onSaveImportedTest, onSaveImportDraft } = props;
   const [poolPage, setPoolPage] = useState(0);
@@ -213,6 +227,7 @@ function UploadBuilder(props) {
   );
 }
 
+// Show the leaderboard for the currently selected test.
 function RankingBoard({ rankingsTest, rankings, rankingsLoading }) {
   return (
     <div className={cardBase}>
@@ -222,7 +237,8 @@ function RankingBoard({ rankingsTest, rankings, rankingsLoading }) {
       <div className="mt-5 grid gap-3">{rankings.map((item) => <div key={item.submissionId} className="rounded-3xl border border-stone-900/10 bg-white/70 p-4"><div className="flex items-center justify-between gap-3"><div><strong className="text-stone-900">#{item.rank} {item.candidateName}</strong><p className="text-xs text-stone-500">{formatSavedDate(item.submittedAt)}</p></div><div className="text-right"><strong className="block font-['Sora'] text-2xl text-stone-900">{formatScore(item.score)}</strong><span className="text-xs text-stone-500">score</span></div></div></div>)}</div>
     </div>
   );
-}
+}
+// Handle the TestLanding logic for this module.
 export function TestLanding({ tests, submissions, adminUsers, loading, authChecking, authUser, candidateName, generationPrompt, selectedExamTypes, activeExamType, selectedPageType, selectedSectionName, syllabusTagsInput, generating, parsing, savingImport, savingDraft, importedDraft, durationMinutes, draftStats, rankings, rankingsTest, rankingsLoading, onRegister, onLogin, onLogout, onSavePreferences, onNameChange, onPromptChange, onExamTypesChange, onActiveExamTypeChange, onPageTypeChange, onSectionNameChange, onSyllabusTagsChange, onDurationChange, onGenerate, onPdfUpload, onImportedDraftChange, onImportedQuestionChange, onAddToList, onRemoveFromList, onRemoveQuestion, onAddQuestion, onSaveImportedTest, onSaveImportDraft, onStart, onLoadRankings, onDeleteTest, onRefreshDashboard }) {
   const [activePage, setActivePage] = useState("exams");
   const [pageIndex, setPageIndex] = useState(0);
@@ -250,6 +266,20 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
   useEffect(() => {
     setPageIndex(0);
   }, [activePage, activeExamType, tests.length]);
+
+  useEffect(() => {
+    if (!authUser) {
+      setActivePage("auth");
+      return;
+    }
+
+    if (authUser.role === "admin") {
+      setActivePage("admin");
+      return;
+    }
+
+    setActivePage("exams");
+  }, [authUser]);
 
   const renderExams = () => <div className="space-y-6"><div className={cardBase}><SectionHeader eyebrow="Exam Selection" title="Choose one or more exams first" description="Start here. Pick the categories you care about, then the app will guide you into auth and a filtered dashboard." action={<button className={secondaryButton} type="button" onClick={onRefreshDashboard}>Refresh</button>} /><div className="mt-5"><ExamMultiSelector selectedExamTypes={selectedExamTypes} activeExamType={activeExamType} onToggle={toggleExam} onFocus={onActiveExamTypeChange} /></div></div><div className="grid gap-4 md:grid-cols-4"><StatCard label="Selected exams" value={selectedExamTypes.length} /><StatCard label="Saved tests" value={visibleTests.length} /><StatCard label="Sectional tests" value={sectionalTests.length} tone="text-sky-700" /><StatCard label="PYQ sets" value={pyqTests.length} tone="text-rose-700" /></div></div>;
 
@@ -281,4 +311,4 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
       {activePage === "contact" ? <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]"><div className={`${cardBase} space-y-4`}><SectionHeader eyebrow="Contact" title="Stay connected" description="Dedicated contact page kept inside the current single-app structure." /><input value={candidateName} onChange={(event) => onNameChange(event.target.value)} className="w-full rounded-3xl border border-stone-900/10 bg-white/80 px-5 py-4 outline-none focus:border-amber-600" placeholder="Your display name" /></div><div className={`${cardBase} space-y-4`}><input value={contactForm.name} onChange={(event) => setContactForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-3xl border border-stone-900/10 bg-white/80 px-5 py-4 outline-none focus:border-amber-600" placeholder="Name" /><input value={contactForm.email} onChange={(event) => setContactForm((current) => ({ ...current, email: event.target.value }))} className="w-full rounded-3xl border border-stone-900/10 bg-white/80 px-5 py-4 outline-none focus:border-amber-600" placeholder="Email" /><textarea rows={5} value={contactForm.message} onChange={(event) => setContactForm((current) => ({ ...current, message: event.target.value }))} className="w-full rounded-[28px] border border-stone-900/10 bg-white/80 px-5 py-4 outline-none focus:border-amber-600" placeholder="Message" /><button type="button" className={primaryButton} onClick={() => setContactStatus("Message draft saved locally in the form.")}>Save Message Draft</button>{contactStatus ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{contactStatus}</p> : null}</div></div> : null}
     </section>
   );
-}
+}

@@ -1,3 +1,5 @@
+// Parse uploaded PDF content into structured test-question data for the client editor.
+
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -8,6 +10,7 @@ const OPTION_START = /^\s*[\(\[]?\s*([A-Da-d])\s*[\)\].:\-]\s+(.+)$/;
 const INLINE_ANSWER = /(?:ans(?:wer)?|correct(?:\s*option)?|solution)\s*[:\-]?\s*\(?([A-Da-d])\)?/i;
 const ANSWER_SECTION_TITLE = /(answer\s*key|correct\s*answers?|solutions?)/i;
 
+// Handle the normalizeWhitespace logic for this module.
 function normalizeWhitespace(value) {
   return value
     .replace(/\u00a0/g, " ")
@@ -17,6 +20,7 @@ function normalizeWhitespace(value) {
     .trim();
 }
 
+// Handle the normalizeLines logic for this module.
 function normalizeLines(text) {
   return text
     .split(/\r?\n/)
@@ -24,6 +28,7 @@ function normalizeLines(text) {
     .filter(Boolean);
 }
 
+// Handle the detectColumnSplit logic for this module.
 function detectColumnSplit(items) {
   const xs = items.map((item) => Number(item.transform?.[4] || 0));
   if (xs.length === 0) return null;
@@ -37,6 +42,7 @@ function detectColumnSplit(items) {
   return mid;
 }
 
+// Handle the buildColumnText logic for this module.
 function buildColumnText(items, minX, maxX) {
   const rows = new Map();
   items.forEach((item) => {
@@ -55,6 +61,7 @@ function buildColumnText(items, minX, maxX) {
     .join("\n");
 }
 
+// Handle the buildPageText logic for this module.
 function buildPageText(items) {
   const validItems = items.filter((item) => item.str && String(item.str).trim());
   const split = detectColumnSplit(validItems);
@@ -83,6 +90,7 @@ function buildPageText(items) {
   return leftText + "\n" + rightText;
 }
 
+// Handle the extractPdfText logic for this module.
 async function extractPdfText(file) {
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
@@ -97,6 +105,7 @@ async function extractPdfText(file) {
   return pages.join("\n\n");
 }
 
+// Handle the splitInlineOptions logic for this module.
 function splitInlineOptions(line) {
   // Match patterns like: ( a ) text  or  (a) text  or  a) text
   const matches = [...line.matchAll(/(^|\s)\(?\s*([A-Da-d])\s*\)?\s*[)\].:\-]?\s+(?=\S)/g)];
@@ -114,6 +123,7 @@ function splitInlineOptions(line) {
     .filter(Boolean);
 }
 
+// Handle the parseAnswerKey logic for this module.
 function parseAnswerKey(lines) {
   const answerKey = new Map();
   let inAnswerSection = false;
@@ -136,6 +146,7 @@ function parseAnswerKey(lines) {
   return answerKey;
 }
 
+// Handle the parseQuestionBlocks logic for this module.
 function parseQuestionBlocks(lines) {
   const starts = [];
 
@@ -171,6 +182,7 @@ function parseQuestionBlocks(lines) {
   return filtered;
 }
 
+// Handle the finalizeOption logic for this module.
 function finalizeOption(optionBuffer, options) {
   if (!optionBuffer) {
     return null;
@@ -190,6 +202,7 @@ function finalizeOption(optionBuffer, options) {
   return option;
 }
 
+// Handle the parseQuestionBlock logic for this module.
 function parseQuestionBlock(block, answerKey) {
   const firstLine = block[0] || "";
   const questionMatch = firstLine.match(QUESTION_START);
@@ -274,6 +287,7 @@ function parseQuestionBlock(block, answerKey) {
   };
 }
 
+// Read PDF text and convert it into structured questions for editing or import.
 export async function parsePdfQuestions(file) {
   console.log("[pdfParser] starting parse for:", file.name);
   const rawText = await extractPdfText(file);

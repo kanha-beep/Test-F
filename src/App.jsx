@@ -1,3 +1,5 @@
+// Hold the top-level client state and connect the landing, runner, and results flows.
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ResultsView } from "./components/ResultsView.jsx";
 import { TestLanding } from "./components/TestLanding.jsx";
@@ -6,10 +8,15 @@ import { EXAM_TYPES } from "./lib/examData.js";
 import { api, getStoredToken, setStoredToken } from "./lib/api.js";
 import { parsePdfQuestions } from "./lib/pdfParser.js";
 
+// Keep the local-storage key centralized so every draft read and write stays in sync.
 const DRAFT_LOCAL_KEY = "gest_import_draft_backup";
 
+// Normalize imported questions into one reliable structure before the UI uses them.
+// Handle the normalizeQuestion logic for this module.
 function normalizeQuestion(question, index, fallbackSubject = "General") {
+  // Always keep the option order fixed for the runner and editor.
   const keys = ["A", "B", "C", "D"];
+  // Build a keyed lookup so missing or shuffled option arrays can be normalized safely.
   const optionMap = new Map((question.options || []).map((option) => [String(option.key).toUpperCase(), option]));
 
   return {
@@ -30,6 +37,7 @@ function normalizeQuestion(question, index, fallbackSubject = "General") {
   };
 }
 
+// Collect the whole default app state in one place so resets stay predictable.
 const initialState = {
   tests: [],
   submissions: [],
@@ -40,7 +48,7 @@ const initialState = {
   authUser: null,
   authChecking: true,
   generationPrompt: "Prepare a 10-question UPSC-style mixed difficulty test with clear explanations and practical exam framing.",
-  selectedExamTypes: [EXAM_TYPES[0]],
+  selectedExamTypes: [],
   activeExamType: EXAM_TYPES[0],
   selectedPageType: "full-test",
   selectedSectionName: "",
@@ -49,6 +57,7 @@ const initialState = {
   parsing: false,
   savingImport: false,
   savingDraft: false,
+  draftStatus: "",
   importedDraft: null,
   durationMinutes: 30,
   activeTest: null,
@@ -62,6 +71,8 @@ const initialState = {
   rankingsLoading: false
 };
 
+// Merge one answer update into the existing answer map without mutating state.
+// Handle the buildAnswerState logic for this module.
 function buildAnswerState(previous, questionId, nextAnswer) {
   return {
     ...previous,
@@ -72,11 +83,20 @@ function buildAnswerState(previous, questionId, nextAnswer) {
   };
 }
 
+// Remove blanks and duplicates from exam selection while guaranteeing a fallback exam.
+// Handle the normalizeExamSelection logic for this module.
 function normalizeExamSelection(exams = []) {
   const unique = [...new Set((exams || []).map((item) => String(item || "").trim()).filter(Boolean))];
   return unique.length ? unique : [EXAM_TYPES[0]];
 }
 
+// Keep stored user preferences distinct from UI fallbacks so users are not forced into SSC.
+function sanitizeExamSelection(exams = []) {
+  return [...new Set((exams || []).map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
+// Convert the current exam and page selection into reusable backend metadata.
+// Handle the buildMetadataFromState logic for this module.
 function buildMetadataFromState(state) {
   return {
     examType: state.activeExamType,
@@ -86,15 +106,22 @@ function buildMetadataFromState(state) {
   };
 }
 
-export default function App() {
-  const [state, setState] = useState(initialState);
-  const timerRef = useRef(null);
-  const stateRef = useRef(state);
+// Run the top-level client application and coordinate all major screens.
+export default function App() {
+  // Store all cross-page application state in one object.
+  const [state, setState] = useState(initialState);
+  // Keep the timer id available for cleanup whenever the active test changes.
+  const timerRef = useRef(null);
+  // Keep a live reference to state so async callbacks can always read the latest values.
+  const stateRef = useRef(state);
+
+  // Refresh the mutable state reference every time React state changes.
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
+  // Load tests, submissions, and admin-only data for the current dashboard context.
   const loadDashboardData = async (candidateName = "", options = {}) => {
     const { silent = false } = options;
     const token = getStoredToken();
@@ -125,6 +152,7 @@ export default function App() {
     }
   };
 
+  // Rebuild a saved draft payload into the richer client-side draft format.
   const restoreDraftPayload = (payload) => {
     if (!payload?.questions?.length) {
       return null;
@@ -140,6 +168,7 @@ export default function App() {
     };
   };
 
+  // Save the current imported draft locally and remotely when a user is logged in.
   const persistImportDraft = async (draft, durationMinutesValue) => {
     const metadata = buildMetadataFromState(stateRef.current);
     const payload = {
@@ -152,18 +181,27 @@ export default function App() {
       confirmedIds: [...draft.confirmedIds],
       warnings: draft.warnings || []
     };
+    let savedLocal = false;
+    let savedRemote = false;
+    let lastError = null;
     try {
       localStorage.setItem(DRAFT_LOCAL_KEY, JSON.stringify({ ...payload, savedAt: Date.now() }));
-    } catch {
-      /* ignore */
+      savedLocal = true;
+    } catch (error) {
+      lastError = error;
     }
     if (getStoredToken()) {
       try {
         await api.saveImportDraft(payload);
-      } catch {
-        /* ignore */
+        savedRemote = true;
+      } catch (error) {
+        lastError = error;
       }
     }
+    if (!savedLocal && !savedRemote) {
+      throw new Error(lastError?.message || "Unable to save draft");
+    }
+    return { savedLocal, savedRemote };
   };
 
   useEffect(() => {
@@ -174,13 +212,13 @@ export default function App() {
         try {
           const { user } = await api.me();
           if (!cancelled && user) {
-            const preferred = normalizeExamSelection(user.preferredExamTypes);
+            const preferred = sanitizeExamSelection(user.preferredExamTypes);
             setState((previous) => ({
               ...previous,
               authUser: user,
               candidateName: user.displayName || previous.candidateName,
               selectedExamTypes: preferred,
-              activeExamType: preferred[0]
+              activeExamType: preferred[0] || previous.activeExamType || EXAM_TYPES[0] || previous.activeExamType || EXAM_TYPES[0]
             }));
             try {
               const { draft } = await api.getLatestImportDraft();
@@ -308,14 +346,24 @@ export default function App() {
   };
 
   const savePreferences = async (preferredExamTypes) => {
-    const normalized = normalizeExamSelection(preferredExamTypes);
+    const normalized = sanitizeExamSelection(preferredExamTypes);
+    if (!normalized.length) {
+      setState((previous) => ({ ...previous, error: "Select at least one paper category before continuing." }));
+      return;
+    }
     setState((previous) => ({ ...previous, selectedExamTypes: normalized, activeExamType: normalized[0] }));
     if (!stateRef.current.authUser) {
       return;
     }
     try {
       const { user } = await api.updatePreferences(normalized);
-      setState((previous) => ({ ...previous, authUser: user, selectedExamTypes: normalizeExamSelection(user.preferredExamTypes), activeExamType: normalizeExamSelection(user.preferredExamTypes)[0] }));
+      const savedPreferences = sanitizeExamSelection(user.preferredExamTypes);
+      setState((previous) => ({
+        ...previous,
+        authUser: user,
+        selectedExamTypes: savedPreferences,
+        activeExamType: savedPreferences[0] || previous.activeExamType || EXAM_TYPES[0]
+      }));
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Unable to save preferences" }));
     }
@@ -363,18 +411,18 @@ export default function App() {
     event.target.value = "";
   };
 
-  const updateImportedDraft = (changes) => setState((previous) => ({ ...previous, importedDraft: previous.importedDraft ? { ...previous.importedDraft, ...changes } : previous.importedDraft }));
+  const updateImportedDraft = (changes) => setState((previous) => ({ ...previous, draftStatus: "", importedDraft: previous.importedDraft ? { ...previous.importedDraft, ...changes } : previous.importedDraft }));
   const addQuestionToList = (questionId) => setState((previous) => {
     if (!previous.importedDraft) return previous;
     const next = new Set(previous.importedDraft.confirmedIds);
     next.add(questionId);
-    return { ...previous, importedDraft: { ...previous.importedDraft, confirmedIds: next } };
+    return { ...previous, draftStatus: "", importedDraft: { ...previous.importedDraft, confirmedIds: next } };
   });
   const removeQuestionFromList = (questionId) => setState((previous) => {
     if (!previous.importedDraft) return previous;
     const next = new Set(previous.importedDraft.confirmedIds);
     next.delete(questionId);
-    return { ...previous, importedDraft: { ...previous.importedDraft, confirmedIds: next } };
+    return { ...previous, draftStatus: "", importedDraft: { ...previous.importedDraft, confirmedIds: next } };
   });
   const addImportedQuestion = () => setState((previous) => {
     if (!previous.importedDraft) return previous;
@@ -382,17 +430,17 @@ export default function App() {
     const nextNumber = questions.length > 0 ? Math.max(...questions.map((q) => q.number)) + 1 : 1;
     const fallbackSubject = previous.selectedPageType === "sectional" ? previous.selectedSectionName.trim() || previous.activeExamType : previous.activeExamType;
     const newQuestion = { id: `draft-new-${Date.now()}`, number: nextNumber, prompt: "", subject: fallbackSubject, difficulty: "Mixed", correctOption: "", parserNotes: [], explanation: "", options: ["A", "B", "C", "D"].map((key) => ({ key, text: "", explanation: "" })) };
-    return { ...previous, importedDraft: { ...previous.importedDraft, questions: [...questions, newQuestion] } };
+    return { ...previous, draftStatus: "", importedDraft: { ...previous.importedDraft, questions: [...questions, newQuestion] } };
   });
   const removeImportedQuestion = (questionId) => setState((previous) => {
     if (!previous.importedDraft) return previous;
     const nextConfirmed = new Set(previous.importedDraft.confirmedIds);
     nextConfirmed.delete(questionId);
-    return { ...previous, importedDraft: { ...previous.importedDraft, confirmedIds: nextConfirmed, questions: previous.importedDraft.questions.filter((q) => q.id !== questionId) } };
+    return { ...previous, draftStatus: "", importedDraft: { ...previous.importedDraft, confirmedIds: nextConfirmed, questions: previous.importedDraft.questions.filter((q) => q.id !== questionId) } };
   });
   const updateImportedQuestion = (questionId, updater) => setState((previous) => {
     if (!previous.importedDraft) return previous;
-    return { ...previous, importedDraft: { ...previous.importedDraft, questions: previous.importedDraft.questions.map((question) => question.id === questionId ? updater(question) : question) } };
+    return { ...previous, draftStatus: "", importedDraft: { ...previous.importedDraft, questions: previous.importedDraft.questions.map((question) => question.id === questionId ? updater(question) : question) } };
   });
 
   const buildQuestionsForImport = (questions) => questions.map((q) => ({ id: q.id, number: q.number, prompt: q.prompt, subject: q.subject, difficulty: q.difficulty, correctOption: q.correctOption, explanation: q.explanation || "", options: q.options.map((o) => ({ key: o.key, text: o.text, explanation: o.explanation || "" })) }));
@@ -425,8 +473,14 @@ export default function App() {
     const draft = state.importedDraft;
     if (!draft) return;
     try {
-      setState((previous) => ({ ...previous, savingDraft: true, error: "" }));
-      await persistImportDraft(draft, state.durationMinutes);
+      setState((previous) => ({ ...previous, savingDraft: true, error: "", draftStatus: "" }));
+      const result = await persistImportDraft(draft, state.durationMinutes);
+      setState((previous) => ({
+        ...previous,
+        draftStatus: result.savedRemote ? "Draft saved to your device and account." : "Draft saved to this device."
+      }));
+    } catch (error) {
+      setState((previous) => ({ ...previous, error: error.message || "Unable to save draft", draftStatus: "" }));
     } finally {
       setState((previous) => ({ ...previous, savingDraft: false }));
     }
@@ -435,10 +489,17 @@ export default function App() {
   const register = async ({ email, password, displayName, preferredExamTypes }) => {
     try {
       setState((previous) => ({ ...previous, error: "" }));
-      const normalized = normalizeExamSelection(preferredExamTypes?.length ? preferredExamTypes : stateRef.current.selectedExamTypes);
+      const normalized = sanitizeExamSelection(preferredExamTypes?.length ? preferredExamTypes : stateRef.current.selectedExamTypes);
       const { token, user } = await api.register({ email, password, displayName, preferredExamTypes: normalized });
       setStoredToken(token);
-      setState((previous) => ({ ...previous, authUser: user, candidateName: user.displayName || previous.candidateName, selectedExamTypes: normalizeExamSelection(user.preferredExamTypes), activeExamType: normalizeExamSelection(user.preferredExamTypes)[0] }));
+      const savedPreferences = sanitizeExamSelection(user.preferredExamTypes);
+      setState((previous) => ({
+        ...previous,
+        authUser: user,
+        candidateName: user.displayName || previous.candidateName,
+        selectedExamTypes: savedPreferences,
+        activeExamType: savedPreferences[0] || previous.activeExamType || EXAM_TYPES[0]
+      }));
       await loadDashboardData("");
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Registration failed" }));
@@ -450,8 +511,14 @@ export default function App() {
       setState((previous) => ({ ...previous, error: "" }));
       const { token, user } = await api.login({ email, password });
       setStoredToken(token);
-      const preferred = normalizeExamSelection(user.preferredExamTypes);
-      setState((previous) => ({ ...previous, authUser: user, candidateName: user.displayName || previous.candidateName, selectedExamTypes: preferred, activeExamType: preferred[0] }));
+      const preferred = sanitizeExamSelection(user.preferredExamTypes);
+      setState((previous) => ({
+        ...previous,
+        authUser: user,
+        candidateName: user.displayName || previous.candidateName,
+        selectedExamTypes: preferred,
+        activeExamType: preferred[0] || previous.activeExamType || EXAM_TYPES[0]
+      }));
       await loadDashboardData("");
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Login failed" }));
@@ -490,8 +557,12 @@ export default function App() {
         return { questionId: question._id, selectedOption: answer?.selectedOption || null, status: answer?.status || "skipped" };
       }) };
       const submissionResponse = await api.submitTest(currentState.activeTest._id, payload);
-      const [submission, submissions] = await Promise.all([api.getSubmission(submissionResponse.submissionId), api.getSubmissions(currentState.candidateName)]);
-      setState((previous) => ({ ...previous, submission, submissions, resultFilter: "all" }));
+      const [submission, submissions, rankingResponse] = await Promise.all([
+        api.getSubmission(submissionResponse.submissionId),
+        api.getSubmissions(currentState.candidateName),
+        api.getRankings(currentState.activeTest._id)
+      ]);
+      setState((previous) => ({ ...previous, submission, submissions, rankings: rankingResponse.rankings, rankingsTest: rankingResponse.test, resultFilter: "all" }));
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Unable to submit test" }));
     }
@@ -508,14 +579,21 @@ export default function App() {
   };
 
   return (
-    <main className="relative min-h-screen max-w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(196,102,31,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(20,92,82,0.18),transparent_22%),linear-gradient(145deg,#f8f2ea_0%,#efe3d1_100%)] px-4 py-6 text-stone-900 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute right-[-5rem] top-[-7rem] h-80 w-80 rounded-full bg-amber-700/20 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-[-8rem] left-[-4rem] h-96 w-96 rounded-full bg-emerald-800/15 blur-3xl" />
+    <main className="relative min-h-screen max-w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.10),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(148,163,184,0.22),transparent_24%),linear-gradient(145deg,#f8fafc_0%,#e2e8f0_100%)] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute right-[-5rem] top-[-7rem] h-80 w-80 rounded-full bg-slate-900/10 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-[-8rem] left-[-4rem] h-96 w-96 rounded-full bg-slate-500/10 blur-3xl" />
       {state.error ? <div className="fixed right-4 top-4 z-50 rounded-2xl border border-red-700/15 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg">{state.error}</div> : null}
-      {!state.activeTest ? <TestLanding tests={state.tests} submissions={state.submissions} adminUsers={state.adminUsers} loading={state.loading} authChecking={state.authChecking} authUser={state.authUser} candidateName={state.candidateName} generationPrompt={state.generationPrompt} selectedExamTypes={state.selectedExamTypes} activeExamType={state.activeExamType} selectedPageType={state.selectedPageType} selectedSectionName={state.selectedSectionName} syllabusTagsInput={state.syllabusTagsInput} generating={state.generating} parsing={state.parsing} savingImport={state.savingImport} savingDraft={state.savingDraft} importedDraft={state.importedDraft} durationMinutes={state.durationMinutes} draftStats={draftStats} rankings={state.rankings} rankingsTest={state.rankingsTest} rankingsLoading={state.rankingsLoading} onRegister={register} onLogin={login} onLogout={logout} onSavePreferences={savePreferences} onNameChange={(candidateName) => setState((previous) => ({ ...previous, candidateName }))} onPromptChange={(generationPrompt) => setState((previous) => ({ ...previous, generationPrompt }))} onExamTypesChange={(selectedExamTypes) => setState((previous) => ({ ...previous, selectedExamTypes: normalizeExamSelection(selectedExamTypes) }))} onActiveExamTypeChange={(activeExamType) => setState((previous) => ({ ...previous, activeExamType }))} onPageTypeChange={(selectedPageType) => setState((previous) => ({ ...previous, selectedPageType, selectedSectionName: selectedPageType === "sectional" ? previous.selectedSectionName : "" }))} onSectionNameChange={(selectedSectionName) => setState((previous) => ({ ...previous, selectedSectionName }))} onSyllabusTagsChange={(syllabusTagsInput) => setState((previous) => ({ ...previous, syllabusTagsInput }))} onDurationChange={(durationMinutes) => setState((previous) => ({ ...previous, durationMinutes }))} onGenerate={generateTest} onPdfUpload={handlePdfUpload} onImportedDraftChange={updateImportedDraft} onImportedQuestionChange={updateImportedQuestion} onAddToList={addQuestionToList} onRemoveFromList={removeQuestionFromList} onRemoveQuestion={removeImportedQuestion} onAddQuestion={addImportedQuestion} onSaveImportedTest={saveImportedTest} onSaveImportDraft={saveImportDraftManually} onStart={startTest} onLoadRankings={loadRankings} onDeleteTest={deleteTest} onRefreshDashboard={() => loadDashboardData(state.candidateName, { silent: false })} /> : null}
+      {!state.activeTest ? <TestLanding tests={state.tests} submissions={state.submissions} adminUsers={state.adminUsers} loading={state.loading} authChecking={state.authChecking} authUser={state.authUser} candidateName={state.candidateName} generationPrompt={state.generationPrompt} selectedExamTypes={state.selectedExamTypes} activeExamType={state.activeExamType} selectedPageType={state.selectedPageType} selectedSectionName={state.selectedSectionName} syllabusTagsInput={state.syllabusTagsInput} generating={state.generating} parsing={state.parsing} savingImport={state.savingImport} savingDraft={state.savingDraft} draftStatus={state.draftStatus} importedDraft={state.importedDraft} durationMinutes={state.durationMinutes} draftStats={draftStats} rankings={state.rankings} rankingsTest={state.rankingsTest} rankingsLoading={state.rankingsLoading} onRegister={register} onLogin={login} onLogout={logout} onSavePreferences={savePreferences} onNameChange={(candidateName) => setState((previous) => ({ ...previous, candidateName }))} onPromptChange={(generationPrompt) => setState((previous) => ({ ...previous, generationPrompt }))} onExamTypesChange={(selectedExamTypes) => setState((previous) => ({ ...previous, selectedExamTypes: sanitizeExamSelection(selectedExamTypes) }))} onActiveExamTypeChange={(activeExamType) => setState((previous) => ({ ...previous, activeExamType }))} onPageTypeChange={(selectedPageType) => setState((previous) => ({ ...previous, draftStatus: "", selectedPageType, selectedSectionName: selectedPageType === "sectional" ? previous.selectedSectionName : "" }))} onSectionNameChange={(selectedSectionName) => setState((previous) => ({ ...previous, draftStatus: "", selectedSectionName }))} onSyllabusTagsChange={(syllabusTagsInput) => setState((previous) => ({ ...previous, draftStatus: "", syllabusTagsInput }))} onDurationChange={(durationMinutes) => setState((previous) => ({ ...previous, draftStatus: "", durationMinutes }))} onGenerate={generateTest} onPdfUpload={handlePdfUpload} onImportedDraftChange={updateImportedDraft} onImportedQuestionChange={updateImportedQuestion} onAddToList={addQuestionToList} onRemoveFromList={removeQuestionFromList} onRemoveQuestion={removeImportedQuestion} onAddQuestion={addImportedQuestion} onSaveImportedTest={saveImportedTest} onSaveImportDraft={saveImportDraftManually} onStart={startTest} onLoadRankings={loadRankings} onDeleteTest={deleteTest} onRefreshDashboard={() => loadDashboardData(state.candidateName, { silent: false })} /> : null}
       {state.activeTest && !state.submission ? <TestRunner test={state.activeTest} candidateName={state.candidateName} currentIndex={state.currentIndex} answers={state.answers} timeLeft={state.timeLeft} onSelectQuestion={(currentIndex) => setState((previous) => ({ ...previous, currentIndex }))} onSelectOption={selectOption} onSkip={skipQuestion} onMarkForReview={markForReview} onClearResponse={clearResponse} onSubmit={submitTest} /> : null}
-      {state.submission ? <ResultsView submission={state.submission} activeFilter={state.resultFilter} onFilterChange={(resultFilter) => setState((previous) => ({ ...previous, resultFilter }))} onRetake={resetToLanding} /> : null}
+      {state.submission ? <ResultsView submission={state.submission} activeFilter={state.resultFilter} onFilterChange={(resultFilter) => setState((previous) => ({ ...previous, resultFilter }))} onRetake={resetToLanding} onBackToDashboard={resetToLanding} /> : null}
     </main>
   );
-}
+}
+
+
+
+
+
+
+
 

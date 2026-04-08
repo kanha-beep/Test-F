@@ -1,3 +1,7 @@
+// Show evaluated answers, scoring analysis, and post-test actions after submission.
+
+import { useState } from "react";
+
 const filterOptions = [
   { key: "all", label: "All" },
   { key: "correct", label: "Correct" },
@@ -6,6 +10,7 @@ const filterOptions = [
   { key: "review", label: "Review" }
 ];
 
+// Handle the matchesFilter logic for this module.
 function matchesFilter(answer, activeFilter) {
   if (activeFilter === "all") {
     return true;
@@ -26,6 +31,7 @@ function matchesFilter(answer, activeFilter) {
   return answer.status === activeFilter;
 }
 
+// Handle the badgeLabel logic for this module.
 function badgeLabel(status) {
   switch (status) {
     case "review_correct":
@@ -37,6 +43,7 @@ function badgeLabel(status) {
   }
 }
 
+// Handle the badgeClasses logic for this module.
 function badgeClasses(status) {
   switch (status) {
     case "correct":
@@ -52,10 +59,12 @@ function badgeClasses(status) {
   }
 }
 
+// Format numeric score values so whole numbers and decimals display cleanly.
 function formatScore(value) {
   return Number.isInteger(value) ? String(value) : Number(value || 0).toFixed(2);
 }
 
+// Handle the isGenericOverallExplanation logic for this module.
 function isGenericOverallExplanation(text) {
   const t = String(text || "").trim().toLowerCase();
   return (
@@ -69,10 +78,32 @@ function isGenericOverallExplanation(text) {
 
 const panel = "rounded-[28px] border border-stone-900/10 bg-white/70 p-6 shadow-[0_30px_70px_rgba(80,46,11,0.12)] backdrop-blur-xl";
 const primaryButton =
-  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-700 to-orange-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(196,102,31,0.28)] transition hover:-translate-y-0.5";
+  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-700 to-orange-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(196,102,31,0.28)] transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
+const secondaryButton =
+  "inline-flex items-center justify-center rounded-2xl border border-stone-900/10 bg-white/80 px-5 py-4 text-sm font-semibold text-stone-900 transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
 
-export function ResultsView({ submission, activeFilter, onFilterChange, onRetake }) {
+// Render the post-submission analysis dashboard and answer review list.
+export function ResultsView({ submission, activeFilter, onFilterChange, onRetake, onBackToDashboard }) {
+  const [isRetaking, setIsRetaking] = useState(false);
   const filteredAnswers = submission.evaluatedAnswers.filter((answer) => matchesFilter(answer, activeFilter));
+
+  const handleRetake = async () => {
+    setIsRetaking(true);
+    try {
+      await onRetake();
+    } finally {
+      setIsRetaking(false);
+    }
+  };
+
+  const handleBackToDashboard = async () => {
+    setIsRetaking(true);
+    try {
+      await onBackToDashboard();
+    } finally {
+      setIsRetaking(false);
+    }
+  };
 
   return (
     <section className="relative z-10 grid gap-5">
@@ -89,9 +120,14 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
             Marking scheme: +{formatScore(submission.test.positiveMarks)} and {formatScore(submission.test.negativeMarks)}.
           </p>
         </div>
-        <button className={primaryButton} onClick={onRetake} type="button">
-          Take Another Attempt
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button className={secondaryButton} onClick={handleBackToDashboard} type="button" disabled={isRetaking}>
+            {isRetaking ? "Go to Dashboard..." : "Go to Dashboard"}
+          </button>
+          <button className={primaryButton} onClick={handleRetake} type="button" disabled={isRetaking}>
+            {isRetaking ? "Take Another Attempt..." : "Take Another Attempt"}
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -124,8 +160,9 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
             }`}
             onClick={() => onFilterChange(filter.key)}
             type="button"
+            disabled={isRetaking}
           >
-            {filter.label}
+            {activeFilter === filter.key && isRetaking ? `${filter.label}...` : filter.label}
           </button>
         ))}
       </div>
@@ -197,4 +234,5 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
       </div>
     </section>
   );
-}
+}
+

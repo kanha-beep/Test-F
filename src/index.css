@@ -8,12 +8,12 @@
   }
 
   body {
-    @apply bg-stone-100 text-stone-900 antialiased;
+    @apply bg-slate-100 text-slate-900 antialiased;
     font-family: "Outfit", "Segoe UI", sans-serif;
   }
 
   ::selection {
-    @apply bg-amber-200 text-stone-900;
+    @apply bg-slate-900 text-white;
   }
 
   input,
@@ -26,6 +26,7 @@
 
 @layer utilities {
   .glass-outline {
-    box-shadow: 0 20px 60px rgba(80, 46, 11, 0.08);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
   }
 }
+
