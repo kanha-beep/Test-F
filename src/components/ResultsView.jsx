@@ -48,14 +48,14 @@ function badgeClasses(status) {
   switch (status) {
     case "correct":
     case "review_correct":
-      return "bg-emerald-500/15 text-emerald-800";
+      return "bg-slate-900 text-white";
     case "incorrect":
     case "review_incorrect":
-      return "bg-rose-500/15 text-rose-800";
+      return "bg-slate-700 text-white";
     case "review":
-      return "bg-violet-500/15 text-violet-800";
+      return "bg-slate-300 text-slate-900";
     default:
-      return "bg-stone-500/15 text-stone-700";
+      return "bg-slate-200 text-slate-700";
   }
 }
 
@@ -76,11 +76,11 @@ function isGenericOverallExplanation(text) {
   );
 }
 
-const panel = "rounded-[28px] border border-stone-900/10 bg-white/70 p-6 shadow-[0_30px_70px_rgba(80,46,11,0.12)] backdrop-blur-xl";
+const panel = "rounded-[28px] border border-slate-900/10 bg-white/80 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl";
 const primaryButton =
-  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-700 to-orange-500 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(196,102,31,0.28)] transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(15,23,42,0.20)] transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
 const secondaryButton =
-  "inline-flex items-center justify-center rounded-2xl border border-stone-900/10 bg-white/80 px-5 py-4 text-sm font-semibold text-stone-900 transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center rounded-2xl border border-slate-900/10 bg-white px-5 py-4 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0";
 
 // Render the post-submission analysis dashboard and answer review list.
 export function ResultsView({ submission, activeFilter, onFilterChange, onRetake, onBackToDashboard }) {
@@ -109,14 +109,14 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
     <section className="relative z-10 grid gap-5">
       <div className={`${panel} flex flex-col gap-4 md:flex-row md:items-center md:justify-between`}>
         <div>
-          <span className="inline-flex text-xs font-bold uppercase tracking-[0.18em] text-amber-800">Result Analysis</span>
-          <h1 className="mt-2 font-['Sora'] text-4xl font-bold tracking-[-0.05em] text-stone-900 md:text-5xl">
+          <span className="inline-flex text-xs font-bold uppercase tracking-[0.18em] text-slate-700">Result Analysis</span>
+          <h1 className="mt-2 font-['Sora'] text-4xl font-bold tracking-[-0.05em] text-slate-900 md:text-5xl">
             {submission.test.title}
           </h1>
-          <p className="mt-3 text-lg leading-8 text-stone-600">
+          <p className="mt-3 text-lg leading-8 text-slate-600">
             Score <strong>{formatScore(submission.score)}</strong> out of {formatScore(submission.test.totalMarks)} for {submission.candidateName}.
           </p>
-          <p className="mt-1 text-sm text-stone-500">
+          <p className="mt-1 text-sm text-slate-500">
             Marking scheme: +{formatScore(submission.test.positiveMarks)} and {formatScore(submission.test.negativeMarks)}.
           </p>
         </div>
@@ -131,21 +131,21 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[28px] border border-emerald-700/15 bg-emerald-500/10 p-6">
-          <span className="text-sm text-emerald-800">Correct</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-stone-900">{submission.summary.correct}</strong>
+        <div className="rounded-[28px] border border-slate-900/10 bg-slate-900 p-6">
+          <span className="text-sm text-slate-100">Correct</span>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.correct}</strong>
         </div>
-        <div className="rounded-[28px] border border-rose-700/15 bg-rose-500/10 p-6">
-          <span className="text-sm text-rose-800">Incorrect</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-stone-900">{submission.summary.incorrect}</strong>
+        <div className="rounded-[28px] border border-slate-900/10 bg-slate-700 p-6">
+          <span className="text-sm text-slate-100">Incorrect</span>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.incorrect}</strong>
         </div>
-        <div className="rounded-[28px] border border-stone-700/15 bg-stone-500/10 p-6">
-          <span className="text-sm text-stone-700">Skipped</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-stone-900">{submission.summary.skipped}</strong>
+        <div className="rounded-[28px] border border-slate-900/10 bg-slate-200 p-6">
+          <span className="text-sm text-slate-700">Skipped</span>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.skipped}</strong>
         </div>
-        <div className="rounded-[28px] border border-violet-700/15 bg-violet-500/10 p-6">
-          <span className="text-sm text-violet-800">Review</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-stone-900">{submission.summary.review}</strong>
+        <div className="rounded-[28px] border border-slate-900/10 bg-slate-300 p-6">
+          <span className="text-sm text-slate-700">Review</span>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.review}</strong>
         </div>
       </div>
 
@@ -155,8 +155,8 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
             key={filter.key}
             className={`rounded-full border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5 ${
               activeFilter === filter.key
-                ? "border-stone-900 bg-stone-900 text-white"
-                : "border-stone-900/10 bg-white/80 text-stone-700"
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-900/10 bg-white/80 text-slate-700"
             }`}
             onClick={() => onFilterChange(filter.key)}
             type="button"
@@ -171,17 +171,17 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
         {filteredAnswers.map((answer) => (
           <article className={panel} key={answer.questionId}>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <h3 className="text-xl font-semibold text-stone-900">Question {answer.questionNumber}</h3>
+              <h3 className="text-xl font-semibold text-slate-900">Question {answer.questionNumber}</h3>
               <div className="flex flex-wrap gap-2">
                 <span className={`inline-flex rounded-full px-3 py-2 text-xs font-semibold ${badgeClasses(answer.status)}`}>
                   {badgeLabel(answer.status)}
                 </span>
-                <span className="inline-flex rounded-full bg-stone-900 px-3 py-2 text-xs font-semibold text-white">
+                <span className="inline-flex rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white">
                   {formatScore(answer.marksAwarded)} marks
                 </span>
               </div>
             </div>
-            <p className="mt-4 text-lg leading-8 text-stone-800">{answer.prompt}</p>
+            <p className="mt-4 text-lg leading-8 text-slate-800">{answer.prompt}</p>
             <div className="mt-5 flex flex-wrap gap-3">
               {answer.options.map((option) => {
                 const isSelected = answer.selectedOption === option.key;
@@ -192,22 +192,22 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
                   <div
                     className={`flex min-w-[220px] flex-1 flex-col gap-2 rounded-3xl border px-4 py-4 ${
                       isCorrect
-                        ? "border-emerald-700/30 bg-emerald-500/10"
+                        ? "border-slate-900/20 bg-slate-100"
                         : isSelected
-                          ? "border-amber-700/30 bg-amber-500/10"
-                          : "border-stone-900/10 bg-white/80"
+                          ? "border-slate-700/30 bg-slate-200"
+                          : "border-slate-900/10 bg-white/80"
                     }`}
                     key={option.key}
                   >
                     <div className="flex items-start gap-3">
-                      <strong className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-stone-900/10 text-stone-900">
+                      <strong className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-900/10 text-slate-900">
                         {option.key}
                       </strong>
-                      <span className="text-sm leading-6 text-stone-700">{option.text}</span>
+                      <span className="text-sm leading-6 text-slate-700">{option.text}</span>
                     </div>
                     {optionExplanation ? (
-                      <div className="rounded-2xl bg-stone-900/5 px-3 py-2 text-xs leading-5 text-stone-700">
-                        <span className="font-semibold text-stone-900">Explanation: </span>
+                      <div className="rounded-2xl bg-slate-900/5 px-3 py-2 text-xs leading-5 text-slate-700">
+                        <span className="font-semibold text-slate-900">Explanation: </span>
                         {optionExplanation}
                       </div>
                     ) : null}
@@ -215,17 +215,17 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
                 );
               })}
             </div>
-            <div className="mt-5 flex flex-wrap gap-6 text-sm text-stone-600">
+            <div className="mt-5 flex flex-wrap gap-6 text-sm text-slate-600">
               <p>
-                Your answer: <strong className="text-stone-900">{answer.selectedOption || "Not answered"}</strong>
+                Your answer: <strong className="text-slate-900">{answer.selectedOption || "Not answered"}</strong>
               </p>
               <p>
-                Correct option: <strong className="text-stone-900">{answer.correctOption}</strong>
+                Correct option: <strong className="text-slate-900">{answer.correctOption}</strong>
               </p>
             </div>
             {answer.explanation?.trim() && !isGenericOverallExplanation(answer.explanation) ? (
-              <p className="mt-4 rounded-3xl bg-emerald-900/10 px-4 py-4 text-sm leading-7 text-emerald-900">
-                <span className="font-semibold text-emerald-950">Question explanation: </span>
+              <p className="mt-4 rounded-3xl bg-slate-100 px-4 py-4 text-sm leading-7 text-slate-900">
+                <span className="font-semibold text-slate-950">Question explanation: </span>
                 {answer.explanation}
               </p>
             ) : null}
@@ -235,4 +235,6 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
     </section>
   );
 }
+
+
 
