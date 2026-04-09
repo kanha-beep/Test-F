@@ -240,7 +240,7 @@ function RankingBoard({ rankingsTest, rankings, rankingsLoading }) {
 }
 // Handle the TestLanding logic for this module.
 export function TestLanding({ tests, submissions, adminUsers, loading, authChecking, authUser, candidateName, generationPrompt, selectedExamTypes, activeExamType, selectedPageType, selectedSectionName, syllabusTagsInput, generating, parsing, savingImport, savingDraft, importedDraft, durationMinutes, draftStats, rankings, rankingsTest, rankingsLoading, onRegister, onLogin, onLogout, onSavePreferences, onNameChange, onPromptChange, onExamTypesChange, onActiveExamTypeChange, onPageTypeChange, onSectionNameChange, onSyllabusTagsChange, onDurationChange, onGenerate, onPdfUpload, onImportedDraftChange, onImportedQuestionChange, onAddToList, onRemoveFromList, onRemoveQuestion, onAddQuestion, onSaveImportedTest, onSaveImportDraft, onStart, onLoadRankings, onDeleteTest, onRefreshDashboard }) {
-  const [activePage, setActivePage] = useState("exams");
+  const [activePage, setActivePage] = useState("auth");
   const [pageIndex, setPageIndex] = useState(0);
   const [contactStatus, setContactStatus] = useState("");
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
@@ -262,6 +262,10 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
   const personalTests = tests.filter((test) => String(test.ownerUserId || "") === String(authUser?._id || ""));
   const bestScore = submissions.reduce((best, item) => Math.max(best, scorePercent(item)), 0);
   const improvementAreas = submissions.length ? submissions.slice(0, 5).map((item) => `${item.test?.title || "Test"}: ${scorePercent(item)}%`) : [];
+
+  const navItems = authUser
+    ? NAV_ITEMS.concat(authUser.role === "admin" ? [{ key: "admin", label: "Admin" }] : [])
+    : [{ key: "auth", label: "Auth" }];
 
   useEffect(() => {
     setPageIndex(0);
@@ -296,7 +300,7 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
   return (
     <section className="relative z-10 space-y-8">
       <div className={`${cardBase} sticky top-4 z-20 p-4`}>
-        <div className="flex flex-wrap gap-2">{NAV_ITEMS.concat(authUser?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []).map((item) => <button key={item.key} type="button" onClick={() => setActivePage(item.key)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activePage === item.key ? "bg-slate-900 text-white" : "bg-white/80 text-slate-700 hover:bg-slate-100"}`}>{item.label}</button>)}</div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex flex-col gap-3 sm:flex-row sm:items-center"><div className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold tracking-[0.28em] text-white">G E S T</div><div className="flex flex-wrap gap-2">{navItems.map((item) => <button key={item.key} type="button" onClick={() => setActivePage(item.key)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activePage === item.key ? "bg-slate-900 text-white" : "bg-white/80 text-slate-700 hover:bg-slate-100"}`}>{item.label}</button>)}</div></div>{authUser ? <button type="button" className={secondaryButton} onClick={onLogout}>Log out</button> : null}</div>
       </div>
 
       {activePage === "exams" ? renderExams() : null}
@@ -312,6 +316,8 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
     </section>
   );
 }
+
+
 
 
 
