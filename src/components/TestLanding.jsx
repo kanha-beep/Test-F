@@ -219,6 +219,7 @@ function RankingBoard({ rankingsTest, rankings, rankingsLoading }) {
 export function TestLanding({ tests, submissions, adminUsers, loading, authChecking, authUser, candidateName, generationPrompt, selectedExamTypes, activeExamType, selectedPageType, selectedSectionName, syllabusTagsInput, generating, parsing, savingImport, savingDraft, importedDraft, durationMinutes, draftStats, rankings, rankingsTest, rankingsLoading, onRegister, onLogin, onLogout, onSavePreferences, onNameChange, onPromptChange, onExamTypesChange, onActiveExamTypeChange, onPageTypeChange, onSectionNameChange, onSyllabusTagsChange, onDurationChange, onGenerate, onPdfUpload, onImportedDraftChange, onImportedQuestionChange, onAddToList, onRemoveFromList, onRemoveQuestion, onAddQuestion, onSaveImportedTest, onSaveImportDraft, onStart, onLoadRankings, onDeleteTest, onRefreshDashboard }) {
   const [activePage, setActivePage] = useState("auth");
   const [pageIndex, setPageIndex] = useState(0);
+  const [libraryExamFilter, setLibraryExamFilter] = useState("all");
   const [contactStatus, setContactStatus] = useState("");
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
 
@@ -234,6 +235,7 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
   const preferredExamTypes = authUser?.preferredExamTypes?.length ? authUser.preferredExamTypes : selectedExamTypes;
   const visibleTests = tests.filter((test) => preferredExamTypes.includes(test.examType));
   const fullTests = visibleTests.filter((test) => test.pageType === "full-test" || test.pageType === "custom");
+  const filteredLibraryTests = libraryExamFilter === "all" ? fullTests : fullTests.filter((test) => test.examType === libraryExamFilter);
   const sectionalTests = visibleTests.filter((test) => test.pageType === "sectional");
   const pyqTests = visibleTests.filter((test) => test.pageType === "pyq");
   const personalTests = tests.filter((test) => String(test.ownerUserId || "") === String(authUser?._id || ""));
@@ -246,7 +248,17 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
 
   useEffect(() => {
     setPageIndex(0);
-  }, [activePage, activeExamType, tests.length]);
+  }, [activePage, activeExamType, tests.length, libraryExamFilter]);
+
+  useEffect(() => {
+    if (libraryExamFilter === "all") {
+      return;
+    }
+
+    if (!preferredExamTypes.includes(libraryExamFilter)) {
+      setLibraryExamFilter(preferredExamTypes[0] || "all");
+    }
+  }, [libraryExamFilter, preferredExamTypes]);
 
   useEffect(() => {
     if (!authUser) {
@@ -293,6 +305,8 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
     </section>
   );
 }
+
+
 
 
 
