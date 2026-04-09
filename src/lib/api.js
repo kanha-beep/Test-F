@@ -25,8 +25,8 @@ function normalizeApiUrl(rawValue) {
     value = value.slice(0, -4);
   }
 
-  if (-not ($value -match '^https?://')) {
-    value = "https://$value";
+  if (!/^https?:\/\//i.test(value)) {
+    value = `https://${value}`;
   }
 
   return value;
