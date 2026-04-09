@@ -48,12 +48,12 @@ function badgeClasses(status) {
   switch (status) {
     case "correct":
     case "review_correct":
-      return "bg-slate-900 text-white";
+      return "bg-emerald-500/15 text-emerald-800";
     case "incorrect":
     case "review_incorrect":
-      return "bg-slate-700 text-white";
+      return "bg-rose-500/15 text-rose-800";
     case "review":
-      return "bg-slate-300 text-slate-900";
+      return "bg-stone-300 text-stone-800";
     default:
       return "bg-slate-200 text-slate-700";
   }
@@ -131,20 +131,20 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[28px] border border-slate-900/10 bg-slate-900 p-6">
-          <span className="text-sm text-slate-100">Correct</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-white">{submission.summary.correct}</strong>
+        <div className="rounded-[28px] border border-emerald-700/15 bg-emerald-500/10 p-6">
+          <span className="text-sm text-emerald-800">Correct</span>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.correct}</strong>
         </div>
-        <div className="rounded-[28px] border border-slate-900/10 bg-slate-700 p-6">
-          <span className="text-sm text-slate-100">Incorrect</span>
-          <strong className="mt-2 block font-['Sora'] text-4xl text-white">{submission.summary.incorrect}</strong>
+        <div className="rounded-[28px] border border-rose-700/15 bg-rose-500/10 p-6">
+          <span className="text-sm text-rose-800">Incorrect</span>
+          <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.incorrect}</strong>
         </div>
         <div className="rounded-[28px] border border-slate-900/10 bg-slate-200 p-6">
           <span className="text-sm text-slate-700">Skipped</span>
           <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.skipped}</strong>
         </div>
-        <div className="rounded-[28px] border border-slate-900/10 bg-slate-300 p-6">
-          <span className="text-sm text-slate-700">Review</span>
+        <div className="rounded-[28px] border border-stone-700/15 bg-stone-300/70 p-6">
+          <span className="text-sm text-stone-700">Review</span>
           <strong className="mt-2 block font-['Sora'] text-4xl text-slate-900">{submission.summary.review}</strong>
         </div>
       </div>
@@ -192,9 +192,9 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
                   <div
                     className={`flex min-w-[220px] flex-1 flex-col gap-2 rounded-3xl border px-4 py-4 ${
                       isCorrect
-                        ? "border-slate-900/20 bg-slate-100"
+                        ? "border-emerald-700/30 bg-emerald-500/10"
                         : isSelected
-                          ? "border-slate-700/30 bg-slate-200"
+                          ? "border-rose-700/30 bg-rose-500/10"
                           : "border-slate-900/10 bg-white/80"
                     }`}
                     key={option.key}
@@ -224,8 +224,8 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
               </p>
             </div>
             {answer.explanation?.trim() && !isGenericOverallExplanation(answer.explanation) ? (
-              <p className="mt-4 rounded-3xl bg-slate-100 px-4 py-4 text-sm leading-7 text-slate-900">
-                <span className="font-semibold text-slate-950">Question explanation: </span>
+              <p className="mt-4 rounded-3xl bg-emerald-900/10 px-4 py-4 text-sm leading-7 text-emerald-900">
+                <span className="font-semibold text-emerald-950">Question explanation: </span>
                 {answer.explanation}
               </p>
             ) : null}
@@ -235,6 +235,8 @@ export function ResultsView({ submission, activeFilter, onFilterChange, onRetake
     </section>
   );
 }
+
+
 
 
 
