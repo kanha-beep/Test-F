@@ -2,8 +2,37 @@
 
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const TOKEN_KEY = "gest_auth_token";
+
+function normalizeApiUrl(rawValue) {
+  let value = String(rawValue || "").trim();
+
+  if (!value) {
+    return "http://localhost:3000";
+  }
+
+  if (value.startsWith("VITE_API_URL=")) {
+    value = value.slice("VITE_API_URL=".length).trim();
+  }
+
+  value = value.replace(/^https:\/\//i, "https://");
+  value = value.replace(/^http:\/\//i, "http://");
+  value = value.replace(/^https:\//i, "https://");
+  value = value.replace(/^http:\//i, "http://");
+  value = value.replace(/\/+$/, "");
+
+  if (value.endsWith("/api")) {
+    value = value.slice(0, -4);
+  }
+
+  if (-not ($value -match '^https?://')) {
+    value = "https://$value";
+  }
+
+  return value;
+}
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL);
 
 // Handle the getStoredToken logic for this module.
 export function getStoredToken() {
