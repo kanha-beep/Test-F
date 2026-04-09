@@ -8,7 +8,6 @@ const POOL_PAGE_SIZE = 4;
 const TEST_PAGE_SIZE = 2;
 const NAV_ITEMS = [
   { key: "exams", label: "Exams" },
-  { key: "auth", label: "Auth" },
   { key: "library", label: "All Tests" },
   { key: "sectional", label: "Sectional" },
   { key: "pyq", label: "PYQ" },
@@ -294,6 +293,8 @@ export function TestLanding({ tests, submissions, adminUsers, loading, authCheck
     </section>
   );
 }
+
+
 
 
 
