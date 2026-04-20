@@ -11,6 +11,10 @@ import { parsePdfQuestions } from "./lib/pdfParser.js";
 // Keep the local-storage key centralized so every draft read and write stays in sync.
 const DRAFT_LOCAL_KEY = "gest_import_draft_backup";
 
+function getDraftLocalKey(userId = "guest") {
+  return `${DRAFT_LOCAL_KEY}:${userId || "guest"}`;
+}
+
 // Normalize imported questions into one reliable structure before the UI uses them.
 // Handle the normalizeQuestion logic for this module.
 function normalizeQuestion(question, index, fallbackSubject = "General") {
@@ -59,6 +63,7 @@ const initialState = {
   savingDraft: false,
   draftStatus: "",
   importedDraft: null,
+  importExplanationMode: "with-solution",
   durationMinutes: 30,
   activeTest: null,
   currentIndex: 0,
@@ -101,6 +106,7 @@ function buildMetadataFromState(state) {
   return {
     examType: state.activeExamType,
     pageType: state.selectedPageType,
+    explanationMode: state.importExplanationMode,
     sectionName: state.selectedPageType === "sectional" ? state.selectedSectionName.trim() : "",
     syllabusTags: state.syllabusTagsInput.split(",").map((tag) => tag.trim()).filter(Boolean)
   };
@@ -111,7 +117,8 @@ export default function App() {
   // Store all cross-page application state in one object.
   const [state, setState] = useState(initialState);
   // Keep the timer id available for cleanup whenever the active test changes.
-  const timerRef = useRef(null);
+  const timerRef = useRef(null);
+  const submittingRef = useRef(false);
   // Keep a live reference to state so async callbacks can always read the latest values.
   const stateRef = useRef(state);
 
@@ -162,6 +169,7 @@ export default function App() {
       title: payload.title || "",
       description: payload.description || "",
       sourceFileName: payload.sourceFileName || "",
+      explanationMode: payload.explanationMode === "without-explanation" ? "without-explanation" : "with-solution",
       questions: payload.questions.map((question, index) => normalizeQuestion(question, index, fallbackSubject)),
       confirmedIds: new Set(payload.confirmedIds || []),
       warnings: payload.warnings || []
@@ -185,7 +193,8 @@ export default function App() {
     let savedRemote = false;
     let lastError = null;
     try {
-      localStorage.setItem(DRAFT_LOCAL_KEY, JSON.stringify({ ...payload, savedAt: Date.now() }));
+      const localKey = getDraftLocalKey(stateRef.current.authUser?._id);
+      localStorage.setItem(localKey, JSON.stringify({ ...payload, savedAt: Date.now() }));
       savedLocal = true;
     } catch (error) {
       lastError = error;
@@ -202,6 +211,40 @@ export default function App() {
       throw new Error(lastError?.message || "Unable to save draft");
     }
     return { savedLocal, savedRemote };
+  };
+
+  const loadLocalDraft = (userId) => {
+    try {
+      const directKey = getDraftLocalKey(userId);
+      const directValue = localStorage.getItem(directKey);
+      if (directValue) {
+        return JSON.parse(directValue);
+      }
+
+      if (!userId) {
+        const legacyValue = localStorage.getItem(DRAFT_LOCAL_KEY);
+        return legacyValue ? JSON.parse(legacyValue) : null;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  };
+
+  const applyRestoredDraft = (payload, fallback = {}) => {
+    const restored = restoreDraftPayload(payload);
+    setState((previous) => ({
+      ...previous,
+      importedDraft: restored,
+      durationMinutes: payload?.durationMinutes || previous.durationMinutes,
+      activeExamType: payload?.examType || previous.activeExamType,
+      selectedPageType: payload?.pageType || previous.selectedPageType,
+      importExplanationMode: payload?.explanationMode || previous.importExplanationMode,
+      selectedSectionName: payload?.sectionName || previous.selectedSectionName,
+      syllabusTagsInput: Array.isArray(payload?.syllabusTags) ? payload.syllabusTags.join(", ") : previous.syllabusTagsInput,
+      ...fallback
+    }));
   };
 
   useEffect(() => {
@@ -223,21 +266,16 @@ export default function App() {
             try {
               const { draft } = await api.getLatestImportDraft();
               if (!cancelled && draft?.questions?.length) {
-                const restored = restoreDraftPayload(draft);
-                if (restored) {
-                  setState((previous) => ({
-                    ...previous,
-                    importedDraft: restored,
-                    durationMinutes: draft.durationMinutes || previous.durationMinutes,
-                    activeExamType: draft.examType || previous.activeExamType,
-                    selectedPageType: draft.pageType || previous.selectedPageType,
-                    selectedSectionName: draft.sectionName || previous.selectedSectionName,
-                    syllabusTagsInput: Array.isArray(draft.syllabusTags) ? draft.syllabusTags.join(", ") : previous.syllabusTagsInput
-                  }));
-                }
+                applyRestoredDraft(draft);
+              } else if (!cancelled) {
+                const localDraft = loadLocalDraft(user._id);
+                applyRestoredDraft(localDraft, { importedDraft: restoreDraftPayload(localDraft) });
               }
             } catch {
-              /* ignore */
+              if (!cancelled) {
+                const localDraft = loadLocalDraft(user._id);
+                applyRestoredDraft(localDraft, { importedDraft: restoreDraftPayload(localDraft) });
+              }
             }
           }
         } catch {
@@ -253,26 +291,8 @@ export default function App() {
       }
 
       if (!cancelled && !getStoredToken()) {
-        try {
-          const raw = localStorage.getItem(DRAFT_LOCAL_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            const restored = restoreDraftPayload(parsed);
-            if (restored) {
-              setState((previous) => ({
-                ...previous,
-                importedDraft: restored,
-                durationMinutes: parsed.durationMinutes || previous.durationMinutes,
-                activeExamType: parsed.examType || previous.activeExamType,
-                selectedPageType: parsed.pageType || previous.selectedPageType,
-                selectedSectionName: parsed.sectionName || previous.selectedSectionName,
-                syllabusTagsInput: Array.isArray(parsed.syllabusTags) ? parsed.syllabusTags.join(", ") : previous.syllabusTagsInput
-              }));
-            }
-          }
-        } catch {
-          /* ignore */
-        }
+        const parsed = loadLocalDraft();
+        applyRestoredDraft(parsed, { importedDraft: restoreDraftPayload(parsed) });
       }
 
       try {
@@ -386,20 +406,22 @@ export default function App() {
     }
   };
 
-  const handlePdfUpload = async (event) => {
+  const handlePdfUpload = async (event, explanationMode = "with-solution") => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      setState((previous) => ({ ...previous, parsing: true, error: "", importedDraft: null }));
+      setState((previous) => ({ ...previous, parsing: true, error: "", importedDraft: null, importExplanationMode: explanationMode }));
       const parsed = await parsePdfQuestions(file);
       const fallbackSubject = stateRef.current.selectedPageType === "sectional" ? stateRef.current.selectedSectionName.trim() || stateRef.current.activeExamType : stateRef.current.activeExamType;
       setState((previous) => ({
         ...previous,
         parsing: false,
+        importExplanationMode: explanationMode,
         importedDraft: {
           title: parsed.title,
           description: `Imported from ${file.name}`,
           sourceFileName: file.name,
+          explanationMode,
           questions: parsed.questions.map((question, index) => normalizeQuestion(question, index, fallbackSubject)),
           confirmedIds: new Set(),
           warnings: parsed.warnings
@@ -443,7 +465,7 @@ export default function App() {
     return { ...previous, draftStatus: "", importedDraft: { ...previous.importedDraft, questions: previous.importedDraft.questions.map((question) => question.id === questionId ? updater(question) : question) } };
   });
 
-  const buildQuestionsForImport = (questions) => questions.map((q) => ({ id: q.id, number: q.number, prompt: q.prompt, subject: q.subject, difficulty: q.difficulty, correctOption: q.correctOption, explanation: q.explanation || "", options: q.options.map((o) => ({ key: o.key, text: o.text, explanation: o.explanation || "" })) }));
+  const buildQuestionsForImport = (questions, explanationMode) => questions.map((q) => ({ id: q.id, number: q.number, prompt: q.prompt, subject: q.subject, difficulty: q.difficulty, correctOption: q.correctOption, explanation: explanationMode === "with-solution" ? q.explanation || "" : "", options: q.options.map((o) => ({ key: o.key, text: o.text, explanation: explanationMode === "with-solution" ? o.explanation || "" : "" })) }));
 
   const saveImportedTest = async () => {
     const draft = state.importedDraft;
@@ -458,14 +480,20 @@ export default function App() {
     }
     try {
       setState((previous) => ({ ...previous, savingImport: true, error: "" }));
-      const createdTest = await api.importTest({ title: draft.title, description: draft.description, durationMinutes: Number(state.durationMinutes) || 30, ...buildMetadataFromState(stateRef.current), questions: buildQuestionsForImport(confirmedQuestions) });
+      const createdTest = await api.importTest({ title: draft.title, description: draft.description, durationMinutes: Number(state.durationMinutes) || 30, ...buildMetadataFromState(stateRef.current), questions: buildQuestionsForImport(confirmedQuestions, stateRef.current.importExplanationMode) });
       await loadDashboardData(stateRef.current.candidateName);
-      try { localStorage.removeItem(DRAFT_LOCAL_KEY); } catch {}
-      setState((previous) => ({ ...previous, savingImport: false, importedDraft: null }));
+      try { localStorage.removeItem(getDraftLocalKey(stateRef.current.authUser?._id)); } catch {}
+      setState((previous) => ({ ...previous, savingImport: false, importedDraft: null, draftStatus: "" }));
       await startTest(createdTest._id);
     } catch (error) {
-      await persistImportDraft(draft, state.durationMinutes);
-      setState((previous) => ({ ...previous, savingImport: false, error: `${error.message || "Unable to save imported test"} - your edits were saved as a draft (local storage${getStoredToken() ? " and account" : ""}).` }));
+      let suffix = "";
+      try {
+        await persistImportDraft(draft, state.durationMinutes);
+        suffix = ` - your edits were saved as a draft (local storage${getStoredToken() ? " and account" : ""}).`;
+      } catch (draftError) {
+        suffix = ` - draft backup also failed: ${draftError.message || "unable to save draft"}.`;
+      }
+      setState((previous) => ({ ...previous, savingImport: false, error: `${error.message || "Unable to save imported test"}${suffix}` }));
     }
   };
 
@@ -498,8 +526,12 @@ export default function App() {
         authUser: user,
         candidateName: user.displayName || previous.candidateName,
         selectedExamTypes: savedPreferences,
-        activeExamType: savedPreferences[0] || previous.activeExamType || EXAM_TYPES[0]
+        activeExamType: savedPreferences[0] || previous.activeExamType || EXAM_TYPES[0],
+        importedDraft: null,
+        draftStatus: ""
       }));
+      const localDraft = loadLocalDraft(user._id);
+      applyRestoredDraft(localDraft, { importedDraft: restoreDraftPayload(localDraft) });
       await loadDashboardData("");
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Registration failed" }));
@@ -517,8 +549,22 @@ export default function App() {
         authUser: user,
         candidateName: user.displayName || previous.candidateName,
         selectedExamTypes: preferred,
-        activeExamType: preferred[0] || previous.activeExamType || EXAM_TYPES[0]
+        activeExamType: preferred[0] || previous.activeExamType || EXAM_TYPES[0],
+        importedDraft: null,
+        draftStatus: ""
       }));
+      try {
+        const { draft } = await api.getLatestImportDraft();
+        if (draft?.questions?.length) {
+          applyRestoredDraft(draft);
+        } else {
+          const localDraft = loadLocalDraft(user._id);
+          applyRestoredDraft(localDraft, { importedDraft: restoreDraftPayload(localDraft) });
+        }
+      } catch {
+        const localDraft = loadLocalDraft(user._id);
+        applyRestoredDraft(localDraft, { importedDraft: restoreDraftPayload(localDraft) });
+      }
       await loadDashboardData("");
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Login failed" }));
@@ -528,7 +574,7 @@ export default function App() {
   const logout = () => {
     setStoredToken(null);
     const name = stateRef.current.candidateName;
-    setState((previous) => ({ ...previous, authUser: null, adminUsers: [] }));
+    setState((previous) => ({ ...previous, authUser: null, adminUsers: [], importedDraft: null, draftStatus: "", importExplanationMode: "with-solution" }));
     loadDashboardData(name).catch(() => {});
   };
 
@@ -550,7 +596,8 @@ export default function App() {
 
   const submitTest = async () => {
     const currentState = stateRef.current;
-    if (!currentState.activeTest) return;
+    if (!currentState.activeTest || submittingRef.current) return;
+    submittingRef.current = true;
     try {
       const payload = { candidateName: currentState.candidateName, answers: currentState.activeTest.questions.map((question) => {
         const answer = currentState.answers[question._id];
@@ -558,18 +605,21 @@ export default function App() {
       }) };
       const submissionResponse = await api.submitTest(currentState.activeTest._id, payload);
       const [submission, submissions, rankingResponse] = await Promise.all([
-        api.getSubmission(submissionResponse.submissionId),
+        api.getSubmission(submissionResponse.submissionId, getStoredToken() ? "" : currentState.candidateName),
         api.getSubmissions(currentState.candidateName),
         api.getRankings(currentState.activeTest._id)
       ]);
       setState((previous) => ({ ...previous, submission, submissions, rankings: rankingResponse.rankings, rankingsTest: rankingResponse.test, resultFilter: "all" }));
     } catch (error) {
       setState((previous) => ({ ...previous, error: error.message || "Unable to submit test" }));
+    } finally {
+      submittingRef.current = false;
     }
   };
 
   const resetToLanding = async () => {
     window.clearInterval(timerRef.current);
+    submittingRef.current = false;
     setState((previous) => ({ ...previous, activeTest: null, currentIndex: 0, answers: {}, timeLeft: 0, submission: null, resultFilter: "all" }));
     try {
       await loadDashboardData(stateRef.current.candidateName);
@@ -583,7 +633,7 @@ export default function App() {
       <div className="pointer-events-none absolute right-[-5rem] top-[-7rem] h-80 w-80 rounded-full bg-slate-900/10 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-8rem] left-[-4rem] h-96 w-96 rounded-full bg-slate-500/10 blur-3xl" />
       {state.error ? <div className="fixed right-4 top-4 z-50 rounded-2xl border border-red-700/15 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg">{state.error}</div> : null}
-      {!state.activeTest ? <TestLanding tests={state.tests} submissions={state.submissions} adminUsers={state.adminUsers} loading={state.loading} authChecking={state.authChecking} authUser={state.authUser} candidateName={state.candidateName} generationPrompt={state.generationPrompt} selectedExamTypes={state.selectedExamTypes} activeExamType={state.activeExamType} selectedPageType={state.selectedPageType} selectedSectionName={state.selectedSectionName} syllabusTagsInput={state.syllabusTagsInput} generating={state.generating} parsing={state.parsing} savingImport={state.savingImport} savingDraft={state.savingDraft} draftStatus={state.draftStatus} importedDraft={state.importedDraft} durationMinutes={state.durationMinutes} draftStats={draftStats} rankings={state.rankings} rankingsTest={state.rankingsTest} rankingsLoading={state.rankingsLoading} onRegister={register} onLogin={login} onLogout={logout} onSavePreferences={savePreferences} onNameChange={(candidateName) => setState((previous) => ({ ...previous, candidateName }))} onPromptChange={(generationPrompt) => setState((previous) => ({ ...previous, generationPrompt }))} onExamTypesChange={(selectedExamTypes) => setState((previous) => ({ ...previous, selectedExamTypes: sanitizeExamSelection(selectedExamTypes) }))} onActiveExamTypeChange={(activeExamType) => setState((previous) => ({ ...previous, activeExamType }))} onPageTypeChange={(selectedPageType) => setState((previous) => ({ ...previous, draftStatus: "", selectedPageType, selectedSectionName: selectedPageType === "sectional" ? previous.selectedSectionName : "" }))} onSectionNameChange={(selectedSectionName) => setState((previous) => ({ ...previous, draftStatus: "", selectedSectionName }))} onSyllabusTagsChange={(syllabusTagsInput) => setState((previous) => ({ ...previous, draftStatus: "", syllabusTagsInput }))} onDurationChange={(durationMinutes) => setState((previous) => ({ ...previous, draftStatus: "", durationMinutes }))} onGenerate={generateTest} onPdfUpload={handlePdfUpload} onImportedDraftChange={updateImportedDraft} onImportedQuestionChange={updateImportedQuestion} onAddToList={addQuestionToList} onRemoveFromList={removeQuestionFromList} onRemoveQuestion={removeImportedQuestion} onAddQuestion={addImportedQuestion} onSaveImportedTest={saveImportedTest} onSaveImportDraft={saveImportDraftManually} onStart={startTest} onLoadRankings={loadRankings} onDeleteTest={deleteTest} onRefreshDashboard={() => loadDashboardData(state.candidateName, { silent: false })} /> : null}
+      {!state.activeTest ? <TestLanding tests={state.tests} submissions={state.submissions} adminUsers={state.adminUsers} loading={state.loading} authChecking={state.authChecking} authUser={state.authUser} candidateName={state.candidateName} generationPrompt={state.generationPrompt} selectedExamTypes={state.selectedExamTypes} activeExamType={state.activeExamType} selectedPageType={state.selectedPageType} selectedSectionName={state.selectedSectionName} syllabusTagsInput={state.syllabusTagsInput} importExplanationMode={state.importExplanationMode} generating={state.generating} parsing={state.parsing} savingImport={state.savingImport} savingDraft={state.savingDraft} draftStatus={state.draftStatus} importedDraft={state.importedDraft} durationMinutes={state.durationMinutes} draftStats={draftStats} rankings={state.rankings} rankingsTest={state.rankingsTest} rankingsLoading={state.rankingsLoading} onRegister={register} onLogin={login} onLogout={logout} onSavePreferences={savePreferences} onNameChange={(candidateName) => setState((previous) => ({ ...previous, candidateName }))} onPromptChange={(generationPrompt) => setState((previous) => ({ ...previous, generationPrompt }))} onExamTypesChange={(selectedExamTypes) => setState((previous) => ({ ...previous, selectedExamTypes: sanitizeExamSelection(selectedExamTypes) }))} onActiveExamTypeChange={(activeExamType) => setState((previous) => ({ ...previous, activeExamType }))} onPageTypeChange={(selectedPageType) => setState((previous) => ({ ...previous, draftStatus: "", selectedPageType, selectedSectionName: selectedPageType === "sectional" ? previous.selectedSectionName : "" }))} onImportExplanationModeChange={(importExplanationMode) => setState((previous) => ({ ...previous, draftStatus: "", importExplanationMode, importedDraft: previous.importedDraft ? { ...previous.importedDraft, explanationMode: importExplanationMode, questions: previous.importedDraft.questions.map((question) => importExplanationMode === "with-solution" ? question : { ...question, explanation: "", options: question.options.map((option) => ({ ...option, explanation: "" })) }) } : previous.importedDraft }))} onSectionNameChange={(selectedSectionName) => setState((previous) => ({ ...previous, draftStatus: "", selectedSectionName }))} onSyllabusTagsChange={(syllabusTagsInput) => setState((previous) => ({ ...previous, draftStatus: "", syllabusTagsInput }))} onDurationChange={(durationMinutes) => setState((previous) => ({ ...previous, draftStatus: "", durationMinutes }))} onGenerate={generateTest} onPdfUpload={handlePdfUpload} onImportedDraftChange={updateImportedDraft} onImportedQuestionChange={updateImportedQuestion} onAddToList={addQuestionToList} onRemoveFromList={removeQuestionFromList} onRemoveQuestion={removeImportedQuestion} onAddQuestion={addImportedQuestion} onSaveImportedTest={saveImportedTest} onSaveImportDraft={saveImportDraftManually} onStart={startTest} onLoadRankings={loadRankings} onDeleteTest={deleteTest} onRefreshDashboard={() => loadDashboardData(state.candidateName, { silent: false })} /> : null}
       {state.activeTest && !state.submission ? <TestRunner test={state.activeTest} candidateName={state.candidateName} currentIndex={state.currentIndex} answers={state.answers} timeLeft={state.timeLeft} onSelectQuestion={(currentIndex) => setState((previous) => ({ ...previous, currentIndex }))} onSelectOption={selectOption} onSkip={skipQuestion} onMarkForReview={markForReview} onClearResponse={clearResponse} onSubmit={submitTest} /> : null}
       {state.submission ? <ResultsView submission={state.submission} activeFilter={state.resultFilter} onFilterChange={(resultFilter) => setState((previous) => ({ ...previous, resultFilter }))} onRetake={resetToLanding} onBackToDashboard={resetToLanding} /> : null}
     </main>

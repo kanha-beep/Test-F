@@ -146,40 +146,77 @@ function parseAnswerKey(lines) {
   return answerKey;
 }
 
+// Handle the lineLooksLikeQuestionStart logic for this module.
+function lineLooksLikeQuestionStart(line) {
+  const match = line.match(QUESTION_START);
+
+  if (!match) {
+    return false;
+  }
+
+  const body = normalizeWhitespace(match[2] || "");
+  const wordCount = body.split(" ").filter(Boolean).length;
+
+  if (body.includes(" : ") && wordCount <= 7 && !/[?)]$/.test(body)) {
+    return false;
+  }
+
+  return true;
+}
+
 // Handle the parseQuestionBlocks logic for this module.
-function parseQuestionBlocks(lines) {
-  const starts = [];
+function blockHasOptionSignals(block) {
+  let signalCount = 0;
 
-  lines.forEach((line, index) => {
-    if (QUESTION_START.test(line)) {
-      starts.push(index);
+  for (let index = 1; index < block.length; index += 1) {
+    const line = block[index];
+    if (OPTION_START.test(line)) {
+      signalCount += 1;
+    } else if ((splitInlineOptions(line) || []).length >= 2) {
+      signalCount += 2;
     }
-  });
 
-  const blocks = starts.map((start, index) => {
-    const end = index + 1 < starts.length ? starts[index + 1] : lines.length;
-    return lines.slice(start, end);
-  });
-
-  // Keep only blocks whose question number is strictly increasing
-  // This filters out numbered sub-items (1. 2. 3.) inside question bodies
-  const filtered = [];
-  let lastNumber = 0;
-  for (const block of blocks) {
-    const match = block[0].match(QUESTION_START);
-    if (!match) continue;
-    const num = Number(match[1]);
-    if (num > lastNumber) {
-      lastNumber = num;
-      filtered.push(block);
-    } else {
-      // Append these lines to the previous block
-      if (filtered.length > 0) {
-        filtered[filtered.length - 1].push(...block);
-      }
+    if (signalCount >= 2) {
+      return true;
     }
   }
-  return filtered;
+
+  return false;
+}
+
+// Handle the parseQuestionBlocks logic for this module.
+function parseQuestionBlocks(lines) {
+  const blocks = [];
+  let currentBlock = [];
+  let currentQuestionNumber = 0;
+
+  lines.forEach((line) => {
+    if (lineLooksLikeQuestionStart(line)) {
+      const nextQuestionNumber = Number(line.match(QUESTION_START)?.[1] || 0);
+      if (currentBlock.length === 0) {
+        currentBlock = [line];
+        currentQuestionNumber = nextQuestionNumber;
+        return;
+      }
+
+      if (nextQuestionNumber > currentQuestionNumber && blockHasOptionSignals(currentBlock)) {
+        blocks.push(currentBlock);
+        currentBlock = [line];
+        currentQuestionNumber = nextQuestionNumber;
+        return;
+      }
+    }
+
+    if (currentBlock.length > 0) {
+      currentBlock.push(line);
+    }
+  });
+
+  if (currentBlock.length > 0) {
+    blocks.push(currentBlock);
+  }
+
+  return blocks;
 }
 
 // Handle the finalizeOption logic for this module.
@@ -230,16 +267,6 @@ function parseQuestionBlock(block, answerKey) {
       continue;
     }
 
-    const optionMatch = line.match(OPTION_START);
-    if (optionMatch) {
-      finalizeOption(currentOption, options);
-      currentOption = {
-        key: optionMatch[1].toUpperCase(),
-        text: [optionMatch[2]]
-      };
-      continue;
-    }
-
     const inlineOptions = splitInlineOptions(line);
     if (inlineOptions) {
       finalizeOption(currentOption, options);
@@ -253,7 +280,17 @@ function parseQuestionBlock(block, answerKey) {
             text: normalizeWhitespace(segmentMatch[2])
           });
         }
-      });
+        });
+        continue;
+      }
+
+    const optionMatch = line.match(OPTION_START);
+    if (optionMatch) {
+      finalizeOption(currentOption, options);
+      currentOption = {
+        key: optionMatch[1].toUpperCase(),
+        text: [optionMatch[2]]
+      };
       continue;
     }
 

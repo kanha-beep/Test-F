@@ -321,6 +321,7 @@ export function TestFlowLanding({ tests, submissions, adminUsers, loading, authC
   const [notes, setNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [logoutPending, setLogoutPending] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const preferredExams = authUser?.preferredExamTypes?.length ? authUser.preferredExamTypes : selectedExamTypes;
   const activeExamTests = useMemo(() => tests.filter((test) => test.examType === activeExamType), [tests, activeExamType]);
@@ -338,13 +339,16 @@ export function TestFlowLanding({ tests, submissions, adminUsers, loading, authC
   useEffect(() => {
     if (!authUser) {
       setActivePage("auth");
+      setMobileNavOpen(false);
       return;
     }
     if (!authUser.preferredExamTypes?.length) {
       setActivePage("setup");
+      setMobileNavOpen(false);
       return;
     }
     setActivePage("dashboard");
+    setMobileNavOpen(false);
   }, [authUser]);
 
   useEffect(() => {
@@ -393,9 +397,22 @@ export function TestFlowLanding({ tests, submissions, adminUsers, loading, authC
   return (
     <section className="relative z-10 space-y-8">
       <div className={`${cardBase} sticky top-4 z-20 p-4`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">{NAV_ITEMS.map((item) => <button key={item.key} type="button" onClick={() => setActivePage(item.key)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activePage === item.key ? "bg-stone-900 text-white" : "bg-white/70 text-stone-700 hover:bg-stone-100"}`}>{item.label}</button>)}</div>
-          <button type="button" className={secondaryButton} onClick={handleLogout} disabled={logoutPending}>{logoutPending ? "Log out..." : "Log out"}</button>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-900/10 bg-white/85 text-stone-900 lg:hidden"
+              onClick={() => setMobileNavOpen((current) => !current)}
+              aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+            >
+              <span className="text-lg font-semibold">{mobileNavOpen ? "X" : "="}</span>
+            </button>
+            <button type="button" className="hidden lg:inline-flex" aria-hidden="true" />
+          </div>
+          <div className={`${mobileNavOpen ? "flex" : "hidden"} flex-col gap-3 lg:flex lg:flex-row lg:items-center lg:justify-between`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">{NAV_ITEMS.map((item) => <button key={item.key} type="button" onClick={() => { setActivePage(item.key); setMobileNavOpen(false); }} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activePage === item.key ? "bg-stone-900 text-white" : "bg-white/70 text-stone-700 hover:bg-stone-100"}`}>{item.label}</button>)}</div>
+            <button type="button" className={secondaryButton} onClick={handleLogout} disabled={logoutPending}>{logoutPending ? "Log out..." : "Log out"}</button>
+          </div>
         </div>
       </div>
 

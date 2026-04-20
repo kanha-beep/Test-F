@@ -127,6 +127,11 @@ export const api = {
   getLatestImportDraft: () => request("/api/drafts/latest"),
   getSubmissions: (candidateName) => request(candidateName ? `/api/tests/submissions?candidateName=${encodeURIComponent(candidateName)}` : "/api/tests/submissions"),
   submitTest: (id, body) => request(`/api/tests/${id}/submissions`, { method: "POST", data: body }),
-  getSubmission: (id) => request(`/api/tests/submissions/${id}`)
+  getSubmission: (id, candidateName) =>
+    request(
+      candidateName
+        ? `/api/tests/submissions/${id}?candidateName=${encodeURIComponent(candidateName)}`
+        : `/api/tests/submissions/${id}`
+    )
 };
 

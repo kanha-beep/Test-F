@@ -59,6 +59,8 @@ export function TestRunner({
   const selectedOption = answer?.selectedOption || null;
   const [submitPending, setSubmitPending] = useState(false);
   const isSubmitting = submitPending || timeLeft === 0;
+  const isFirstQuestion = currentIndex === 0;
+  const isLastQuestion = currentIndex === test.questions.length - 1;
 
   const handleSubmit = async () => {
     setSubmitPending(true);
@@ -163,6 +165,22 @@ export function TestRunner({
         </div>
 
         <div className="flex flex-wrap gap-3">
+          <button
+            className={ghostButton}
+            onClick={() => onSelectQuestion(Math.max(0, currentIndex - 1))}
+            type="button"
+            disabled={isSubmitting || isFirstQuestion}
+          >
+            {isSubmitting ? "Previous..." : "Previous"}
+          </button>
+          <button
+            className={ghostButton}
+            onClick={() => onSelectQuestion(Math.min(test.questions.length - 1, currentIndex + 1))}
+            type="button"
+            disabled={isSubmitting || isLastQuestion}
+          >
+            {isSubmitting ? "Next..." : "Next"}
+          </button>
           <button className={ghostButton} onClick={() => onClearResponse(question._id)} type="button" disabled={isSubmitting}>
             {isSubmitting ? "Clear Response..." : "Clear Response"}
           </button>
